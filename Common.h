@@ -20,7 +20,6 @@
 
 #define MAX_WR 10
 #define CQ_SIZE 10
-#define IB_PORT 1
 
 #define READ 'r'
 #define WRITE 'w'
@@ -30,9 +29,6 @@
 #define RC 'c'
 
 #define OPTION "option"
-#define QP_NUM "qp_num"
-#define LID "lid"
-
 #define FILENAME "filename"
 #define OFFSET "offset"
 #define DATA "data"
