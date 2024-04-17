@@ -5,9 +5,6 @@
 #define MR_BUFSIZE 4096
 #define MAX_WR 10
 
-#define MSG "hello"
-#define MSG_SIZE (strlen(MSG) + 1)
-
 struct connection_data
 {
     uint64_t addr;
@@ -81,7 +78,6 @@ struct ibv_cq *create_ibv_cq(struct ibv_context *ctx)
 char *create_buffer(size_t buffer_size)
 {
     char *buffer = (char *)malloc(buffer_size);
-    memset(buffer, 0, buffer_size);
     if (!buffer)
     {
         perror("malloc");
@@ -92,7 +88,7 @@ char *create_buffer(size_t buffer_size)
 
 struct ibv_mr *create_ibv_mr(struct resources *res)
 {
-    struct ibv_mr *mr = ibv_reg_mr(res->pd, res->buffer, sizeof(res->buffer), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
+    struct ibv_mr *mr = ibv_reg_mr(res->pd, res->buffer, MR_BUFSIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
     if (!mr)
     {
         perror("ibv_reg_mr");
@@ -299,7 +295,7 @@ void post_receive(struct resources *res)
 
     memset(&sge, 0, sizeof(sge));
     sge.addr = (uintptr_t)res->buffer;
-    sge.length = MSG_SIZE;
+    sge.length = 256;
     sge.lkey = res->mr->lkey;
 
     memset(&recv_wr, 0, sizeof(recv_wr));
@@ -323,7 +319,7 @@ void post_send(struct resources *res, int opcode)
     struct ibv_send_wr send_wr, *bad_wr;
     memset(&sge, 0, sizeof(sge));
     sge.addr = (uintptr_t)res->buffer;
-    sge.length = MSG_SIZE;
+    sge.length = strlen(res->buffer) + 1;
     sge.lkey = res->mr->lkey;
 
     memset(&send_wr, 0, sizeof(send_wr));
@@ -453,7 +449,4 @@ void poll_completion(struct resources *res)
         printf("Completion error: %s\n", ibv_wc_status_str(wc.status));
         exit(EXIT_FAILURE);
     }
-
-    printf("poll recv wc: wr_id=0x%x\n", wc.wr_id);
-    printf("poll recv message : %s\n", res->buffer);
 }
