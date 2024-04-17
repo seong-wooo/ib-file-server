@@ -306,7 +306,6 @@ void poll_completion(struct resources *res)
     {
         poll_result = ibv_poll_cq(res->cq, 1, &wc);
     } while (poll_result == 0);
-    printf("poll result = %d\n", poll_result);
     if (poll_result < 0)
     {
         perror("ibv_poll_cq");
@@ -322,62 +321,88 @@ void poll_completion(struct resources *res)
     printf("poll recv message : %s\n", res->buffer);
 }
 
-void destroy_resources(struct resources *res)
+void destroy_qp(struct ibv_qp *qp)
 {
-    if (res->qp)
+    if (qp)
     {
-        if (ibv_destroy_qp(res->qp))
+        if (ibv_destroy_qp(qp))
         {
             perror("ibv_destroy_qp");
             exit(EXIT_FAILURE);
         }
     }
+}
 
-    if (res->mr)
+void destroy_mr(struct ibv_mr *mr)
+{
+    if (mr)
     {
-        if (ibv_dereg_mr(res->mr))
+        if (ibv_dereg_mr(mr))
         {
             perror("ibv_dereg_mr");
             exit(EXIT_FAILURE);
         }
     }
+}
 
-    if (res->cq)
+void destroy_cq(struct ibv_cq *cq)
+{
+    if (cq)
     {
-        if (ibv_destroy_cq(res->cq))
+        if (ibv_destroy_cq(cq))
         {
             perror("ibv_destroy_cq");
             exit(EXIT_FAILURE);
         }
     }
+}
 
-    if (res->pd)
+void destroy_pd(struct ibv_pd *pd)
+{
+    if (pd)
     {
-        if (ibv_dealloc_pd(res->pd))
+        if (ibv_dealloc_pd(pd))
         {
             perror("ibv_dealloc_pd");
             exit(EXIT_FAILURE);
         }
     }
+}
 
-    if (res->ctx)
+void destroy_ctx(struct ibv_context *ctx)
+{
+    if (ctx)
     {
-        if (ibv_close_device(res->ctx))
+        if (ibv_close_device(ctx))
         {
             perror("ibv_close_device");
             exit(EXIT_FAILURE);
         }
     }
+}
 
+void destroy_device_list(struct resources *res)
+{
     if (res->device_list)
     {
         ibv_free_device_list(res->device_list);
     }
+}
 
-    if (res->buffer)
-    {
-        free(res->buffer);
+void free_buffer(void *buffer) {
+    if (buffer) {
+        free(buffer);
     }
+}
 
+void destroy_resources(struct resources *res)
+{
+    destroy_qp(res->qp);
+    destroy_mr(res->mr);
+    destroy_cq(res->cq);
+    destroy_pd(res->pd);
+    destroy_ctx(res->ctx);
+    destroy_device_list(res);
+    free_buffer(res->buffer);
     close(res->sock);
 }
