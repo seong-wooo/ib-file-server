@@ -313,7 +313,7 @@ void post_receive(struct resources *res)
     printf("post recv wr\n");
 }
 
-void post_send(struct resources *res, int opcode)
+void post_send(struct resources *res)
 {
     struct ibv_sge sge;
     struct ibv_send_wr send_wr, *bad_wr;
@@ -327,7 +327,7 @@ void post_send(struct resources *res, int opcode)
     send_wr.next = NULL;
     send_wr.sg_list = &sge;
     send_wr.num_sge = 1;
-    send_wr.opcode = opcode;
+    send_wr.opcode = IBV_WR_SEND;
     send_wr.send_flags = IBV_SEND_SIGNALED;
 
     if (ibv_post_send(res->qp, &send_wr, &bad_wr))
@@ -449,4 +449,6 @@ void poll_completion(struct resources *res)
         printf("Completion error: %s\n", ibv_wc_status_str(wc.status));
         exit(EXIT_FAILURE);
     }
+
+    printf("wc 감지 완료");
 }

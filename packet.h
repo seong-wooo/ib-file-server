@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "hash.h"
 
 #define READ 'r'
 #define WRITE 'w'
@@ -16,6 +17,8 @@
 
 #define LINE_PARSER "\n"
 #define TOKEN_PARSER ":"
+
+#define HASH_SIZE 10
 
 char get_option(void) {
     char option;
@@ -133,4 +136,23 @@ char *create_request(char option, char* buf) {
         }
 
     return NULL;
+}
+
+HashMap *parse_message(int hash_size, char *buf)
+{
+    HashMap *body = createHashMap(hash_size);
+    char *key;
+    char *value;
+
+    char *str = strtok(buf, TOKEN_PARSER);
+    while (str != NULL)
+    {
+        key = str;
+        str = strtok(NULL, LINE_PARSER);
+        value = str;
+        str = strtok(NULL, TOKEN_PARSER);
+        put(body, key, value);
+    }
+
+    return body;
 }

@@ -12,9 +12,12 @@ int main()
             break;
         }
         create_request(option, res.buffer);
-        post_send(&res, IBV_WR_SEND);
-
+        post_send(&res);
         poll_completion(&res);
+
+        post_receive(&res);
+        poll_completion(&res);
+        printf("[받은 데이터]:\n%s\n", res.buffer); 
     }
     destroy_resources(&res);
 
