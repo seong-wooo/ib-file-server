@@ -1,10 +1,10 @@
-#include <stdio.h>
 #include <infiniband/verbs.h>
-#include <stdlib.h>
-#include "Common.h"
+#include "tcp_ip.h"
 
 #define IB_PORT 1
 #define MR_BUFSIZE 4096
+#define MAX_WR 10
+
 #define MSG "hello"
 #define MSG_SIZE (strlen(MSG) + 1)
 
@@ -153,7 +153,6 @@ void create_resources(struct resources *res)
     res->mr = create_ibv_mr(res);
     res->port_attr = create_port_attr(res->ctx);
     res->qp = create_ibv_qp(res);
-    res->sock = create_socket();
 }
 
 void modify_qp_to_init(struct resources *res)
@@ -217,7 +216,8 @@ void modify_qp_to_rts(struct resources *res)
     }
 }
 
-void send_qp_sync_data(SOCKET sock, struct resources *res)
+
+void send_qp_sync_data(struct resources *res)
 {
     struct connection_data conn_data = {
         .addr = (uint64_t)(uintptr_t)res->buffer,
@@ -226,18 +226,18 @@ void send_qp_sync_data(SOCKET sock, struct resources *res)
         .lid = res->port_attr->lid,
     };
 
-    if (send(sock, &conn_data, sizeof(conn_data), MSG_WAITALL) == SOCKET_ERROR)
+    if (send(res->sock, &conn_data, sizeof(conn_data), MSG_WAITALL) == SOCKET_ERROR)
     {
         perror("send");
         exit(EXIT_FAILURE);
     }
 }
 
-int recv_qp_sync_data(SOCKET sock, struct resources *res)
+int recv_qp_sync_data(struct resources *res)
 {
     int retval;
     struct connection_data remote_data;
-    retval = recv(sock, &remote_data, sizeof(remote_data), MSG_WAITALL);
+    retval = recv(res->sock, &remote_data, sizeof(remote_data), MSG_WAITALL);
     if (retval == SOCKET_ERROR)
     {
         perror("recv");
@@ -246,6 +246,50 @@ int recv_qp_sync_data(SOCKET sock, struct resources *res)
 
     res->remote_props = remote_data;
     return retval;
+}
+
+void connect_ib_server(struct resources *res)
+{
+    create_resources(res);
+    res->sock = create_socket();
+    connect_tcp_to_server(res->sock, SERVERIP, SERVERPORT);
+    send_qp_sync_data(res);
+    recv_qp_sync_data(res);
+    modify_qp_to_init(res);
+    modify_qp_to_rtr(res);
+    modify_qp_to_rts(res);
+}
+
+SOCKET accept_socket(SOCKET sock, struct sockaddr_in *client_addr)
+{
+    SOCKET client_sock;
+    int addrlen = sizeof(client_addr);
+
+    client_sock = accept(sock, (struct sockaddr *)client_addr, &addrlen);
+    if (client_sock == INVALID_SOCKET)
+    {
+        err_display("accept()");
+    }
+    print_connected_client(client_addr);
+    return client_sock;
+}
+
+void accept_ib_client(SOCKET sock, struct resources *res)
+{
+    create_resources(res);
+
+    struct sockaddr_in client_addr;
+    SOCKET client_sock = accept_socket(sock, &client_addr);
+    res->sock = client_sock;
+    if (recv_qp_sync_data(res) < 0)
+    {
+        exit(EXIT_FAILURE);
+    }
+    modify_qp_to_init(res);
+    modify_qp_to_rtr(res);
+    modify_qp_to_rts(res);
+    
+    send_qp_sync_data(res);
 }
 
 void post_receive(struct resources *res)
@@ -296,29 +340,6 @@ void post_send(struct resources *res, int opcode)
         exit(EXIT_FAILURE);
     }
     printf("post send wr\n");
-}
-
-void poll_completion(struct resources *res)
-{
-    int poll_result;
-    struct ibv_wc wc;
-    do
-    {
-        poll_result = ibv_poll_cq(res->cq, 1, &wc);
-    } while (poll_result == 0);
-    if (poll_result < 0)
-    {
-        perror("ibv_poll_cq");
-        exit(EXIT_FAILURE);
-    }
-    if (wc.status != IBV_WC_SUCCESS)
-    {
-        printf("Completion error: %s\n", ibv_wc_status_str(wc.status));
-        exit(EXIT_FAILURE);
-    }
-
-    printf("poll recv wc: wr_id=0x%x\n", wc.wr_id);
-    printf("poll recv message : %s\n", res->buffer);
 }
 
 void destroy_qp(struct ibv_qp *qp)
@@ -395,6 +416,13 @@ void free_buffer(void *buffer) {
     }
 }
 
+void close_socket(SOCKET sock) {
+    if (sock != INVALID_SOCKET) {
+        print_disconnected_client(sock);
+        close(sock);
+    }
+}
+
 void destroy_resources(struct resources *res)
 {
     destroy_qp(res->qp);
@@ -404,5 +432,28 @@ void destroy_resources(struct resources *res)
     destroy_ctx(res->ctx);
     destroy_device_list(res);
     free_buffer(res->buffer);
-    close(res->sock);
+    close_socket(res->sock);
+}
+
+void poll_completion(struct resources *res)
+{
+    int poll_result;
+    struct ibv_wc wc;
+    do
+    {
+        poll_result = ibv_poll_cq(res->cq, 1, &wc);
+    } while (poll_result == 0);
+    if (poll_result < 0)
+    {
+        perror("ibv_poll_cq");
+        exit(EXIT_FAILURE);
+    }
+    if (wc.status != IBV_WC_SUCCESS)
+    {
+        printf("Completion error: %s\n", ibv_wc_status_str(wc.status));
+        exit(EXIT_FAILURE);
+    }
+
+    printf("poll recv wc: wr_id=0x%x\n", wc.wr_id);
+    printf("poll recv message : %s\n", res->buffer);
 }
