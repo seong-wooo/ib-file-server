@@ -11,44 +11,46 @@ void read_file(struct hash_map_s *body, char *response);
 void delete_file(struct hash_map_s *body, char *response);
 void read_list(struct hash_map_s *body, char *response);
 void write_log(const char* level, const char* message);
-void create_response(struct ib_resources_s *res);
+void create_response(struct ib_resources_s *ib_res);
 
 int main(int argc, char const *argv[])
 {
-    struct ib_resources_s res;
+    struct ib_handle_s ib_handle;
+    create_ib_handle(&ib_handle);
     socket_t server_sock = create_server_socket();
+    struct ib_resources_s *ib_res = accept_ib_client(server_sock, &ib_handle);
     
-    accept_ib_client(server_sock, &res);
     while (1) {
-        post_receive(&res);
-        poll_completion(&res);
-        create_response(&res);
-        post_send(&res);
-        poll_completion(&res);
+        post_receive(ib_res);
+        poll_completion(&ib_handle);
+        create_response(ib_res);
+        post_send(ib_res);
+        poll_completion(&ib_handle);
     }
-    destroy_resources(&res);
+    destroy_resource(ib_res);
+    destroy_handle(&ib_handle);
     close(server_sock);
     printf("[TCP 서버] 서버 종료\n");
 
     return 0;
 }
 
-void create_response(struct ib_resources_s *res) {
-    struct hash_map_s *body = parse_message(HASH_SIZE, res->buffer);
+void create_response(struct ib_resources_s *ib_res) {
+    struct hash_map_s *body = parse_message(HASH_SIZE, ib_res->mr_addr);
     char *option = get(body, OPTION);
     switch (*option) {
     case WRITE:
-        write_flie(body, res->buffer);
+        write_flie(body, ib_res->mr_addr);
         break;
     case READ:
-        read_file(body, res->buffer);
+        read_file(body, ib_res->mr_addr);
         break;
     case DELETE:
-        delete_file(body, res->buffer);
+        delete_file(body, ib_res->mr_addr);
         break;
 
     case LIST:
-        read_list(body, res->buffer);
+        read_list(body, ib_res->mr_addr);
         break;
 
     default:
