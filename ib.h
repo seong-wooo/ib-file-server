@@ -2,7 +2,8 @@
 #include "tcp_ip.h"
 
 #define IB_PORT 1
-#define MR_BUFSIZE 4096
+#define RECV_BUF_SIZE 4096
+#define MR_BUF_SIZE RECV_BUF_SIZE * 1024
 #define MAX_WR 10
 
 struct connection_data_s
@@ -88,7 +89,7 @@ char *create_buffer(size_t buffer_size)
 
 struct ibv_mr *create_ibv_mr(struct ib_resources_s *res)
 {
-    struct ibv_mr *mr = ibv_reg_mr(res->pd, res->buffer, MR_BUFSIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
+    struct ibv_mr *mr = ibv_reg_mr(res->pd, res->buffer, MR_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
     if (!mr)
     {
         perror("ibv_reg_mr");
@@ -145,7 +146,7 @@ void create_resources(struct ib_resources_s *res)
     res->ctx = create_ibv_context(res->device_list);
     res->pd = create_ibv_pd(res->ctx);
     res->cq = create_ibv_cq(res->ctx);
-    res->buffer = create_buffer(MR_BUFSIZE);
+    res->buffer = create_buffer(MR_BUF_SIZE);
     res->mr = create_ibv_mr(res);
     res->port_attr = create_port_attr(res->ctx);
     res->qp = create_ibv_qp(res);
@@ -291,7 +292,7 @@ void post_receive(struct ib_resources_s *res)
 
     memset(&sge, 0, sizeof(sge));
     sge.addr = (uintptr_t)res->buffer;
-    sge.length = 256;
+    sge.length = RECV_BUF_SIZE;
     sge.lkey = res->mr->lkey;
 
     memset(&recv_wr, 0, sizeof(recv_wr));
@@ -434,5 +435,8 @@ void poll_completion(struct ib_resources_s *res)
         exit(EXIT_FAILURE);
     }
 
-    printf("wc 감지 완료");
+    printf("wc 감지 완료\n");
+    printf("내 qp 번호: %d\n", res->qp->qp_num);
+    printf("상대 qp 번호: %d\n", res->remote_props.qp_num);
+    printf("wc로부터 받은 상대 qp 번호: %d\n", wc.qp_num);
 }
