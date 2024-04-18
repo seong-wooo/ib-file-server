@@ -15,7 +15,7 @@
 #define SOCKET_ERROR   -1
 
 #define SERVERPORT 9000
-#define BUFSIZE 10000
+#define BUFSIZE 1024
 #define HASH_SIZE 10
 
 #define MAX_WR 10

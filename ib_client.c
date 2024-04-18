@@ -1,86 +1,38 @@
-#include "Common.h"
 #include "ib.h"
 
 char *SERVERIP = (char *) "192.1.1.207";
 
-#define MAX_WR 10
-#define CQ_SIZE 10
-#define IB_PORT 1
-
 void connect_to_server(SOCKET sock, char* ip, int port);
+void get_list(char* buf);
+void get_read(char* buf);
+void get_write(char* buf);
+void get_delete(char* buf);
+int get_option(void);
+int get_offset(void);
+int get_length(void);
+char* get_data(void);
+char* get_filename(void);
 
 int main()
 {
-    struct ibv_device **device_list = create_device_list();
-    struct ibv_context *ctx = create_ibv_context(device_list);
-    struct ibv_pd *pd = create_ibv_pd(ctx);
-    struct ibv_cq *cq = create_ibv_cq(ctx);
-    struct ibv_mr *mr = create_ibv_mr(pd, 10000);
-    struct ibv_qp *qp = create_ibv_qp_reset(ctx, pd, cq);
-    modify_qp_to_init(qp);
-    QP_INFO *qp_info = get_qp_info(qp);
-
-    struct ibv_qp_attr rtr_attr;
-    struct ibv_qp_attr rts_attr;
-    char buf[BUFSIZE];
+    struct resources res;
+    create_resources(&res);
+    connect_to_server(res.sock, SERVERIP, SERVERPORT);
+    send_qp_sync_data(res.sock, &res);
+    recv_qp_sync_data(res.sock, &res);
+    
+    modify_qp_to_init(&res);
+    modify_qp_to_rtr(&res);
+    modify_qp_to_rts(&res);
 
 
-    SOCKET sock = create_socket();
-    connect_to_server(sock, SERVERIP, SERVERPORT);
-    sprintf(buf, "%s%s%c%s%s%s%u%s%s%s%u", OPTION, TOKEN_PARSER, RC, LINE_PARSER, QP_NUM, TOKEN_PARSER, qp_info->qp_num, LINE_PARSER, LID, TOKEN_PARSER, qp_info->lid);
-    int retval = send(sock, buf, BUFSIZE, MSG_WAITALL);
-    if (retval == SOCKET_ERROR) {
-        err_display("send()");
-    }
-
-    retval = recv(sock, buf, BUFSIZE, MSG_WAITALL);
-    if (retval == SOCKET_ERROR) {
-        err_display("recv()");
-    }
-    buf[retval] = '\0';
-
-    HashMap* hashMap = parse_message(HASH_SIZE, buf);
-
-    uint32_t server_qp_num = atoi(get(hashMap, QP_NUM));
-    uint16_t server_lid = atoi(get(hashMap, LID));
-
-    modify_qp_to_rtr(qp, server_qp_num, server_lid);
-    modify_qp_to_rts(qp);
-
-
-    // 자원 해제
-    if (ibv_destroy_qp(qp)) {
-        perror("ibv_destroy_qp");
-        exit(EXIT_FAILURE);
-    }
-
-    if (ibv_dereg_mr(mr)) {
-        perror("ibv_dereg_mr");
-        exit(EXIT_FAILURE);
-    }
-
-    if (ibv_destroy_cq(cq))
-    {
-        perror("ibv_destroy_cq");
-        exit(EXIT_FAILURE);
-    }
-
-    if (ibv_dealloc_pd(pd))
-    {
-        perror("ibv_dealloc_pd");
-        exit(EXIT_FAILURE);
-    }
-
-    if (ibv_close_device(ctx))
-    {
-        perror("ibv_close_device");
-        exit(EXIT_FAILURE);
-    }
-
-    ibv_free_device_list(device_list);
-
+    strcpy(res.buffer, MSG);
+    post_send(&res, IBV_WR_SEND);
+    poll_completion(&res);
+    destroy_resources(&res);
+    
     return 0;
-}
+}   
 
 void connect_to_server(SOCKET sock, char* ip, int port) {
     int retval;
@@ -92,4 +44,99 @@ void connect_to_server(SOCKET sock, char* ip, int port) {
     serveraddr.sin_port = htons(port);
     retval = connect(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
     if (retval == SOCKET_ERROR) err_quit("connect()");
+}
+
+int get_option(void) {
+    char option;
+    do {
+        fseek(stdin, 0, SEEK_END);
+        printf("[파일 리스트 조회: %c / 파일 읽기 : %c / 파일 쓰기 : %c / 파일 삭제 : %c / 종료 : %c]: ", LIST, READ, WRITE, DELETE, QUIT);
+        option = getchar();
+        getchar();
+    } while (option != LIST && option != READ && option != WRITE && option != DELETE && option != QUIT);
+
+    return option;
+}
+
+void get_list(char* buf) {
+    sprintf(buf, "%s%s%c", OPTION, TOKEN_PARSER, LIST);
+}
+
+void get_read(char* buf) {
+    char* filename;
+    int offset;
+    int length;
+
+    filename = get_filename();
+    offset = get_offset();
+    length = get_length();
+    sprintf(buf, "%s%s%c%s%s%s%s%s%s%s%d%s%s%s%d", OPTION, TOKEN_PARSER, READ, LINE_PARSER, FILENAME, TOKEN_PARSER, filename, LINE_PARSER, OFFSET, TOKEN_PARSER, offset, LINE_PARSER, LENGTH, TOKEN_PARSER, length);
+    free(filename);
+}
+
+void get_write(char* buf) {
+    char* filename;
+    int offset;
+    int length;
+    char* data;
+
+    filename = get_filename();
+    offset = get_offset();
+    data = get_data();
+    sprintf(buf, "%s%s%c%s%s%s%s%s%s%s%d%s%s%s%s", OPTION, TOKEN_PARSER, WRITE, LINE_PARSER, FILENAME, TOKEN_PARSER, filename, LINE_PARSER, OFFSET, TOKEN_PARSER, offset, LINE_PARSER, DATA, TOKEN_PARSER, data);
+    
+    free(filename);
+    free(data);
+}
+
+void get_delete(char* buf) {
+    char* filename;
+
+    filename = get_filename();
+    sprintf(buf, "%s%s%c%s%s%s%s", OPTION, TOKEN_PARSER, DELETE, LINE_PARSER, FILENAME, TOKEN_PARSER, filename);
+    free(filename);
+}
+
+int get_offset(void) {
+    int offset;
+    printf("[오프셋]: ");
+    scanf("%d", &offset);
+    getchar();
+    
+    return offset;
+}
+
+int get_length(void) {
+    int length;
+    printf("[읽을 길이]: ");
+    scanf("%d", &length);
+    getchar();
+    
+    return length;
+}
+
+char* get_data(void) {
+    char temp[1000];
+    char* data;
+
+    printf("[쓸 내용]: ");
+    fgets(temp, sizeof(temp), stdin);
+    temp[strlen(temp) - 1] = '\0';
+    data = (char *)malloc(strlen(temp) + 1);
+    strcpy(data, temp);
+    
+    return data;
+}
+
+char* get_filename(void) {
+    char temp[1000];
+    char* filename;
+
+    printf("[파일명]: ");
+    fgets(temp, sizeof(temp), stdin);
+    temp[strlen(temp) - 1] = '\0';
+    filename = (char *)malloc(strlen(temp) + 1);
+    strcpy(filename, temp);
+    
+    return filename;
 }
