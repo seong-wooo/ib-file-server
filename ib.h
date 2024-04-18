@@ -5,6 +5,7 @@
 #define QP_BUF_SIZE 4096
 #define MR_BUF_SIZE QP_BUF_SIZE * 1024
 #define MAX_WR 10
+#define COMP_VECTOR 1
 
 struct connection_data_s {
     uint64_t mr_addr;
@@ -19,6 +20,7 @@ struct ib_handle_s {
     struct ibv_context *ctx;
     struct ibv_pd *pd;
     struct ibv_cq *cq;
+    struct ibv_comp_channel *channel;
     struct ibv_mr *mr;
 };
 
@@ -64,8 +66,8 @@ struct ibv_pd *create_ibv_pd(struct ibv_context *ctx) {
     return pd;
 }
 
-struct ibv_cq *create_ibv_cq(struct ibv_context *ctx) {
-    struct ibv_cq *cq = ibv_create_cq(ctx, 100, NULL, NULL, 0);
+struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *channel) {
+    struct ibv_cq *cq = ibv_create_cq(ctx, 100, NULL, channel, COMP_VECTOR);
     if (!cq)
     {
         perror("ibv_create_cq");
@@ -130,12 +132,14 @@ void create_ib_handle(struct ib_handle_s *ib_handle) {
     ib_handle->device_list = create_device_list();
     ib_handle->ctx = create_ibv_context(ib_handle->device_list);
     ib_handle->pd = create_ibv_pd(ib_handle->ctx);
-    ib_handle->cq = create_ibv_cq(ib_handle->ctx);
+    ib_handle->channel = ibv_create_comp_channel(ib_handle->ctx);
+    ib_handle->cq = create_ibv_cq(ib_handle->ctx, ib_handle->channel);
     ib_handle->mr = create_ibv_mr(ib_handle, mr_addr);
     ib_handle->port_attr = create_port_attr(ib_handle->ctx);
 }
 
 void alloc_mr_buffer(struct ib_resources_s *ib_res) {
+    // TODO: 버퍼 할당 방식 변경
     ib_res->mr_addr = ib_res->ib_handle->mr->addr;
 }
 
@@ -419,20 +423,31 @@ void destroy_handle(struct ib_handle_s *ib_handle) {
 }
 
 void poll_completion(struct ib_handle_s *ib_handle) {
-    int poll_result;
+    int rc;
+    struct ibv_cq *event_cq;
+    void *event_cq_ctx;
     struct ibv_wc wc;
+    
+    rc = ibv_req_notify_cq(ib_handle->cq, 0);
+    if (rc) {
+        perror("ibv_req_notify_cq");
+        exit(EXIT_FAILURE);
+    }
+
+    rc = ibv_get_cq_event(ib_handle->channel, &event_cq, &event_cq_ctx);
+    if (rc) {
+        perror("ibv_get_cq_event");
+        exit(EXIT_FAILURE);
+    }
+
     do {
-        poll_result = ibv_poll_cq(ib_handle->cq, 1, &wc);
-    } while (poll_result == 0);
+        rc = ibv_poll_cq(event_cq, 1, &wc);
+        if (rc < 0) {
+            perror("ibv_poll_cq");
+            exit(EXIT_FAILURE);
+        }
+    } while (rc == 0);
+    
 
-    if (poll_result < 0) {
-        perror("ibv_poll_cq");
-        exit(EXIT_FAILURE);
-    }
-    if (wc.status != IBV_WC_SUCCESS) {
-        printf("Completion error: %s\n", ibv_wc_status_str(wc.status));
-        exit(EXIT_FAILURE);
-    }
-
-    printf("wc 감지 완료\n");
+    ibv_ack_cq_events(event_cq, 1);
 }
