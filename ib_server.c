@@ -6,21 +6,20 @@
 #define LOGFILE "log.txt"
 #define BUFSIZE 256
 
-void write_flie(HashMap *body, char *response);
-void read_file(HashMap *body, char *response);
-void delete_file(HashMap *body, char *response);
-void read_list(HashMap *body, char *response);
+void write_flie(struct hash_map_s *body, char *response);
+void read_file(struct hash_map_s *body, char *response);
+void delete_file(struct hash_map_s *body, char *response);
+void read_list(struct hash_map_s *body, char *response);
 void write_log(const char* level, const char* message);
-void create_response(struct resources *res);
+void create_response(struct ib_resources_s *res);
 
 int main(int argc, char const *argv[])
 {
-    struct resources res;
-    SOCKET server_sock = create_server_socket();
+    struct ib_resources_s res;
+    socket_t server_sock = create_server_socket();
     
     accept_ib_client(server_sock, &res);
-    while (1)
-    {
+    while (1) {
         post_receive(&res);
         poll_completion(&res);
         create_response(&res);
@@ -34,11 +33,10 @@ int main(int argc, char const *argv[])
     return 0;
 }
 
-void create_response(struct resources *res) {
-    HashMap *body = parse_message(HASH_SIZE, res->buffer);
+void create_response(struct ib_resources_s *res) {
+    struct hash_map_s *body = parse_message(HASH_SIZE, res->buffer);
     char *option = get(body, OPTION);
-    switch (*option)
-    {
+    switch (*option) {
     case WRITE:
         write_flie(body, res->buffer);
         break;
@@ -60,18 +58,17 @@ void create_response(struct resources *res) {
     freeHashMap(body);
 }
 
-void write_flie(HashMap *body, char *response)
+void write_flie(struct hash_map_s *body, char *response)
 {
     char *filename = get(body, FILENAME);
     int offset = atoi(get(body, OFFSET));
     char *data = get(body, DATA);
+    char logMessage[BUFSIZE];
 
     FILE *fp = fopen(filename, "rb+");
-    if (fp == NULL)
-    {
+    if (fp == NULL) {
         fp = fopen(filename, "wb");
-        if (fp == NULL)
-        {
+        if (fp == NULL) {
             perror("Error opening file");
         }
         offset = 0;
@@ -79,15 +76,13 @@ void write_flie(HashMap *body, char *response)
 
     fseek(fp, 0, SEEK_END);
     long fileSize = ftell(fp);
-    if (offset > fileSize)
-    {
+    if (offset > fileSize) {
         offset = fileSize;
     }
 
     fseek(fp, offset, SEEK_SET);
     fwrite(data, sizeof(char), strlen(data), fp);
 
-    char logMessage[BUFSIZE];
     snprintf(logMessage, BUFSIZE, "option=%c, filename=%s, offset=%d, data=%s", WRITE, filename, offset, data);
     write_log(LOG_INFO, logMessage);
 
@@ -95,27 +90,24 @@ void write_flie(HashMap *body, char *response)
     strcpy(response, "Data written successfully");
 }
 
-void read_file(HashMap *body, char *response)
+void read_file(struct hash_map_s *body, char *response)
 {
     char *filename = get(body, FILENAME);
     int offset = atoi(get(body, OFFSET));
     int length = atoi(get(body, LENGTH));
 
     FILE *fp = fopen(filename, "r");
-    if (fp == NULL)
-    {
+    if (fp == NULL) {
         strcpy(response, "Error opening file");
     }
     else
     {
         fseek(fp, 0, SEEK_END);
         long fileSize = ftell(fp);
-        if (offset > fileSize)
-        {
+        if (offset > fileSize) {
             strcpy(response, "Offset is greater than file size");
         }
-        else
-        {
+        else {
             fseek(fp, offset, SEEK_SET);
             length = (offset + length > fileSize) ? fileSize - offset : length;
             fread(response, sizeof(char), length, fp);
@@ -125,35 +117,31 @@ void read_file(HashMap *body, char *response)
     }
 }
 
-void delete_file(HashMap *body, char *response)
+void delete_file(struct hash_map_s *body, char *response)
 {
     char *filename = get(body, FILENAME);
-    if (unlink(filename) == 0)
-    {
+    if (unlink(filename) == 0) {
         char logMessage[BUFSIZE];
         snprintf(logMessage, BUFSIZE, "option=%c, filename=%s", DELETE, filename);
         write_log(LOG_INFO, logMessage);
         strcpy(response, "File deleted successfully");
     }
-    else
-    {
+    else {
         strcpy(response, "Error deleting file");
     }
 }
 
-void read_list(HashMap *body, char *response)
+void read_list(struct hash_map_s *body, char *response)
 {
     DIR *dir;
     struct dirent *entry;
 
     dir = opendir(".");
-    if (dir == NULL)
-    {
+    if (dir == NULL) {
         perror("Error opening dir");
     }
 
-    while ((entry = readdir(dir)) != NULL)
-    {
+    while ((entry = readdir(dir)) != NULL) {
         strcat(response, entry->d_name);
         strcat(response, "\n");
     }
@@ -163,17 +151,17 @@ void read_list(HashMap *body, char *response)
 }
 
 void write_log(const char* level, const char* message) {
+    time_t now;
+    time(&now);
+    char time[20]; 
+    struct tm *local_time = localtime(&now);
+    strftime(time, sizeof(time), "%Y%m%d%H%M%S", local_time);
+
     FILE* fp = fopen(LOGFILE, "a");
     if (fp == NULL) {
         perror("Error opening log file");
         exit(1);
     }
-    time_t now;
-    time(&now);
-
-    struct tm *local_time = localtime(&now);
-    char time[20]; 
-    strftime(time, sizeof(time), "%Y%m%d%H%M%S", local_time);
 
     fprintf(fp, "%s [%s]: %s\n", time, level, message);
     fclose(fp);

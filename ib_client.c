@@ -3,7 +3,7 @@
 
 int main()
 {
-    struct resources res;
+    struct ib_resources_s res;
     connect_ib_server(&res);
 
     while(1) {

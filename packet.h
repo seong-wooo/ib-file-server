@@ -89,7 +89,8 @@ void get_read(char* buf) {
     filename = get_filename();
     offset = get_offset();
     length = get_length();
-    sprintf(buf, "%s%s%c%s%s%s%s%s%s%s%d%s%s%s%d", OPTION, TOKEN_PARSER, READ, LINE_PARSER, FILENAME, TOKEN_PARSER, filename, LINE_PARSER, OFFSET, TOKEN_PARSER, offset, LINE_PARSER, LENGTH, TOKEN_PARSER, length);
+    sprintf(buf, "%s%s%c%s%s%s%s%s%s%s%d%s%s%s%d", OPTION, TOKEN_PARSER, READ, LINE_PARSER, FILENAME, TOKEN_PARSER, filename, 
+            LINE_PARSER, OFFSET, TOKEN_PARSER, offset, LINE_PARSER, LENGTH, TOKEN_PARSER, length);
     free(filename);
 }
 
@@ -102,7 +103,8 @@ void get_write(char* buf) {
     filename = get_filename();
     offset = get_offset();
     data = get_data();
-    sprintf(buf, "%s%s%c%s%s%s%s%s%s%s%d%s%s%s%s", OPTION, TOKEN_PARSER, WRITE, LINE_PARSER, FILENAME, TOKEN_PARSER, filename, LINE_PARSER, OFFSET, TOKEN_PARSER, offset, LINE_PARSER, DATA, TOKEN_PARSER, data);
+    sprintf(buf, "%s%s%c%s%s%s%s%s%s%s%d%s%s%s%s", OPTION, TOKEN_PARSER, WRITE, LINE_PARSER, FILENAME, TOKEN_PARSER, filename, 
+            LINE_PARSER, OFFSET, TOKEN_PARSER, offset, LINE_PARSER, DATA, TOKEN_PARSER, data);
     
     free(filename);
     free(data);
@@ -117,8 +119,7 @@ void get_delete(char* buf) {
 }
 
 char *create_request(char option, char* buf) {
-    switch (option) 
-        {
+    switch (option) {
             case LIST:
                 get_list(buf);
                 break;
@@ -138,15 +139,14 @@ char *create_request(char option, char* buf) {
     return NULL;
 }
 
-HashMap *parse_message(int hash_size, char *buf)
+struct hash_map_s *parse_message(int hash_size, char *buf)
 {
-    HashMap *body = createHashMap(hash_size);
+    struct hash_map_s *body = createHashMap(hash_size);
     char *key;
     char *value;
 
     char *str = strtok(buf, TOKEN_PARSER);
-    while (str != NULL)
-    {
+    while (str != NULL) {
         key = str;
         str = strtok(NULL, LINE_PARSER);
         value = str;

@@ -2,26 +2,27 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct HashNode {
+typedef struct hash_node_s {
     char* key;
     char* value;
-    struct HashNode* next;
-} HashNode;
+    struct hash_node_s* next;
+} hash_node_s;
 
-typedef struct HashMap {
+struct hash_map_s {
     int size;
-    HashNode** buckets;
-} HashMap;
+    hash_node_s** buckets;
+};
 
-HashMap* createHashMap(int size) {
-    HashMap* hashMap = (HashMap*)malloc(sizeof(HashMap));
+
+struct hash_map_s* createHashMap(int size) {
+    struct hash_map_s* hashMap = (struct hash_map_s*)malloc(sizeof(struct hash_map_s));
     if (hashMap == NULL) {
         fprintf(stderr, "Memory allocation failed.\n");
         exit(EXIT_FAILURE);
     }
 
     hashMap->size = size;
-    hashMap->buckets = (HashNode**)malloc(sizeof(HashNode*) * size);
+    hashMap->buckets = (hash_node_s**)malloc(sizeof(hash_node_s*) * size);
     if (hashMap->buckets == NULL) {
         fprintf(stderr, "Memory allocation failed.\n");
         exit(EXIT_FAILURE);
@@ -34,7 +35,7 @@ HashMap* createHashMap(int size) {
     return hashMap;
 }
 
-int hash(HashMap* hashMap, char* key) {
+int hash(struct hash_map_s* hashMap, char* key) {
     unsigned long hashValue = 0;
     int len = strlen(key);
     for (int i = 0; i < len; ++i) {
@@ -54,10 +55,10 @@ char* strdup(const char* str) {
     return new_str;
 }
 
-void put(HashMap* hashMap, char* key, char* value) {
+void put(struct hash_map_s* hashMap, char* key, char* value) {
     int index = hash(hashMap, key);
 
-    HashNode* newNode = (HashNode*)malloc(sizeof(HashNode));
+    hash_node_s* newNode = (hash_node_s*)malloc(sizeof(hash_node_s));
     if (newNode == NULL) {
         fprintf(stderr, "Memory allocation failed.\n");
         exit(EXIT_FAILURE);
@@ -69,7 +70,7 @@ void put(HashMap* hashMap, char* key, char* value) {
     if (hashMap->buckets[index] == NULL) {
         hashMap->buckets[index] = newNode;
     } else {
-        HashNode* temp = hashMap->buckets[index];
+        hash_node_s* temp = hashMap->buckets[index];
         while (temp->next != NULL) {
             temp = temp->next;
         }
@@ -77,10 +78,10 @@ void put(HashMap* hashMap, char* key, char* value) {
     }
 }
 
-char* get(HashMap* hashMap, char* key) {
+char* get(struct hash_map_s* hashMap, char* key) {
     int index = hash(hashMap, key);
 
-    HashNode* temp = hashMap->buckets[index];
+    hash_node_s* temp = hashMap->buckets[index];
     while (temp != NULL) {
         if (strcmp(temp->key, key) == 0) {
             return temp->value;
@@ -91,11 +92,11 @@ char* get(HashMap* hashMap, char* key) {
     return NULL;
 }
 
-void freeHashMap(HashMap* hashMap) {
+void freeHashMap(struct hash_map_s* hashMap) {
     for (int i = 0; i < hashMap->size; ++i) {
-        HashNode* node = hashMap->buckets[i];
+        hash_node_s* node = hashMap->buckets[i];
         while (node != NULL) {
-            HashNode* temp = node;
+            hash_node_s* temp = node;
             node = node->next;
             free(temp->key);
             free(temp->value);
