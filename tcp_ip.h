@@ -9,7 +9,7 @@
 #define SOCKET_ERROR   -1
 
 typedef int socket_t;
-char *SERVER_IP = (char *) "192.1.1.207";
+char *SERVER_IP = (char *) "10.10.10.13";
 
 socket_t create_socket(void)
 {
