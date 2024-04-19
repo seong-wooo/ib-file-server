@@ -1,5 +1,5 @@
 #include "ib.h"
-#include "packet.h"
+#include "message.h"
 #include <dirent.h>
 
 #define LOG_INFO "INFO"
