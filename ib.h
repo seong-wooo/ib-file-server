@@ -1,4 +1,5 @@
 #include <infiniband/verbs.h>
+#include <fcntl.h>
 #include "tcp_ip.h"
 
 #define IB_PORT 1
@@ -20,7 +21,7 @@ struct ib_handle_s {
     struct ibv_context *ctx;
     struct ibv_pd *pd;
     struct ibv_cq *cq;
-    struct ibv_comp_channel *channel;
+    struct ibv_comp_channel *cq_channel;
     struct ibv_mr *mr;
 };
 
@@ -35,11 +36,12 @@ struct ib_resources_s {
 struct ibv_device **create_device_list();
 struct ibv_context *create_ibv_context(struct ibv_device **device_list);
 struct ibv_pd *create_ibv_pd(struct ibv_context *ctx);
-struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *channel);
+struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *cq_channel);
 char *create_buffer(size_t buffer_size);
 struct ibv_mr *create_ibv_mr(struct ibv_pd *pd, char* mr_addr);
 struct ibv_port_attr *create_port_attr(struct ibv_context *ctx);
 struct ibv_qp *create_ibv_qp(struct ib_handle_s *ib_handle);
+struct ibv_comp_channel *create_comp_channel(struct ibv_context *ctx);
 void create_ib_handle(struct ib_handle_s *ib_handle);
 struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle);
 void modify_qp_to_init(struct ib_resources_s *ib_res);
@@ -61,9 +63,10 @@ void destroy_device_list(struct ibv_device **device_list);
 void free_buffer(void *buffer);
 void close_socket(socket_t sock);
 void destroy_ibv_port_attr(struct ibv_port_attr *port_attr);
-void destroy_resource(struct ib_resources_s *ib_res);
-void destroy_handle(struct ib_handle_s *ib_handle);
+void destroy_ib_resource(struct ib_resources_s *ib_res);
+void destroy_ib_handle(struct ib_handle_s *ib_handle);
 void poll_completion(struct ib_handle_s *ib_handle);
+void poll_completion_for_client(struct ib_handle_s *ib_handle);
 
 
 struct ibv_device **create_device_list() {
@@ -101,15 +104,35 @@ struct ibv_pd *create_ibv_pd(struct ibv_context *ctx) {
     return pd;
 }
 
-struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *channel) {
+struct ibv_comp_channel *create_comp_channel(struct ibv_context *ctx) {
     if (!ctx) 
         return NULL;
-    struct ibv_cq *cq = ibv_create_cq(ctx, 100, NULL, channel, COMP_VECTOR);
+    struct ibv_comp_channel *cq_channel = ibv_create_comp_channel(ctx);
+    if (!cq_channel) {
+        perror("ibv_create_comp_channel");
+        exit(EXIT_FAILURE);
+    }
+
+    return cq_channel;
+
+}
+
+struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *cq_channel) {
+    if (!ctx) 
+        return NULL;
+    struct ibv_cq *cq = ibv_create_cq(ctx, 100, NULL, cq_channel, COMP_VECTOR);
     if (!cq)
     {
         perror("ibv_create_cq");
         exit(EXIT_FAILURE);
     }
+
+    int rc = ibv_req_notify_cq(cq, 0);
+    if (rc) {
+        perror("ibv_req_notify_cq");
+        exit(EXIT_FAILURE);
+    }
+
     return cq;
 }
 
@@ -169,16 +192,18 @@ struct ibv_qp *create_ibv_qp(struct ib_handle_s *ib_handle) {
 }
 
 void create_ib_handle(struct ib_handle_s *ib_handle) {
-    if (!ib_handle) 
+    if (!ib_handle) {
         return;
+    }
     char *mr_addr = create_buffer(MR_BUF_SIZE);
 
     memset(ib_handle, 0, sizeof(ib_handle));
     ib_handle->device_list = create_device_list();
     ib_handle->ctx = create_ibv_context(ib_handle->device_list);
     ib_handle->pd = create_ibv_pd(ib_handle->ctx);
-    ib_handle->channel = ibv_create_comp_channel(ib_handle->ctx);
-    ib_handle->cq = create_ibv_cq(ib_handle->ctx, ib_handle->channel);
+    ib_handle->cq_channel = create_comp_channel(ib_handle->ctx);
+    ib_handle->cq = create_ibv_cq(ib_handle->ctx, ib_handle->cq_channel);
+    
     ib_handle->mr = create_ibv_mr(ib_handle->pd, mr_addr);
     ib_handle->port_attr = create_port_attr(ib_handle->ctx);
 }
@@ -198,7 +223,7 @@ struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle) {
     ib_res->qp = create_ibv_qp(ib_handle);
     ib_res->remote_props = (struct connection_data_s *)(malloc(sizeof(struct connection_data_s)));
     if (!ib_res->remote_props) {
-        destroy_resource(ib_res);
+        destroy_ib_resource(ib_res);
         return NULL;
     }
     alloc_mr_buffer(ib_res);
@@ -304,7 +329,7 @@ struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle) {
     modify_qp_to_init(ib_res);
     modify_qp_to_rtr(ib_res);
     modify_qp_to_rts(ib_res);
-
+    
     return ib_res;
 }
 
@@ -332,6 +357,7 @@ struct ib_resources_s *accept_ib_client(socket_t sock, struct ib_handle_s *ib_ha
     modify_qp_to_rtr(ib_res);
     modify_qp_to_rts(ib_res);
     
+    post_receive(ib_res);
     send_qp_sync_data(ib_res);
 
     return ib_res;
@@ -471,7 +497,7 @@ void destroy_ibv_port_attr(struct ibv_port_attr *port_attr) {
     }
 }
 
-void destroy_resource(struct ib_resources_s *ib_res) {
+void destroy_ib_resource(struct ib_resources_s *ib_res) {
     if (!ib_res) {
         return;
     }
@@ -481,7 +507,7 @@ void destroy_resource(struct ib_resources_s *ib_res) {
     free(ib_res);
 }
 
-void destroy_handle(struct ib_handle_s *ib_handle) {
+void destroy_ib_handle(struct ib_handle_s *ib_handle) {
     if (!ib_handle)
         return;
     destroy_mr(ib_handle->mr);
@@ -493,7 +519,7 @@ void destroy_handle(struct ib_handle_s *ib_handle) {
     memset(ib_handle, 0, sizeof(struct ib_handle_s));
 }
 
-void poll_completion(struct ib_handle_s *ib_handle) {
+void poll_completion_for_client(struct ib_handle_s *ib_handle) {
     int rc;
     struct ibv_cq *event_cq;
     void *event_cq_ctx;
@@ -505,7 +531,7 @@ void poll_completion(struct ib_handle_s *ib_handle) {
         exit(EXIT_FAILURE);
     }
 
-    rc = ibv_get_cq_event(ib_handle->channel, &event_cq, &event_cq_ctx);
+    rc = ibv_get_cq_event(ib_handle->cq_channel, &event_cq, &event_cq_ctx);
     if (rc) {
         perror("ibv_get_cq_event");
         exit(EXIT_FAILURE);
@@ -517,8 +543,15 @@ void poll_completion(struct ib_handle_s *ib_handle) {
             perror("ibv_poll_cq");
             exit(EXIT_FAILURE);
         }
+        printf("[wc.opcode]]:%d\n",wc.opcode);
     } while (rc == 0);
     
 
     ibv_ack_cq_events(event_cq, 1);
+
+    rc = ibv_req_notify_cq(ib_handle->cq, 0);
+    if (rc) {
+        perror("ibv_req_notify_cq");
+        exit(EXIT_FAILURE);
+    }
 }
