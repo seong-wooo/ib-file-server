@@ -1,6 +1,8 @@
 #include "ib.h"
 #include "message.h"
 
+void poll_completion(struct ib_handle_s *ib_handle);
+
 int main()
 {
     struct ib_handle_s ib_handle;
@@ -16,11 +18,11 @@ int main()
         create_request(option, ib_res->mr_addr);
         
         post_send(ib_res);
-        poll_completion_for_client(&ib_handle);
+        poll_completion(&ib_handle);
         
         
         post_receive(ib_res);
-        poll_completion_for_client(&ib_handle); 
+        poll_completion(&ib_handle); 
         
         printf("[받은 데이터]:\n%s\n", ib_res->mr_addr); 
     }
@@ -30,3 +32,29 @@ int main()
 
     return 0;
 } 
+
+void poll_completion(struct ib_handle_s *ib_handle) {
+    struct ibv_cq *event_cq;
+    void *event_cq_ctx;
+    struct ibv_wc wc;
+    
+    notify_cq(ib_handle->cq);
+    int rc = ibv_get_cq_event(ib_handle->cq_channel, &event_cq, &event_cq_ctx);
+    if (rc) {
+        perror("ibv_get_cq_event");
+        exit(EXIT_FAILURE);
+    }
+
+    do {
+        rc = ibv_poll_cq(event_cq, 1, &wc);
+        if (rc < 0) {
+            perror("ibv_poll_cq");
+            exit(EXIT_FAILURE);
+        }
+        printf("[wc.opcode]]:%d\n",wc.opcode);
+    } while (rc == 0);
+    
+
+    ibv_ack_cq_events(event_cq, 1);
+    notify_cq(ib_handle->cq);
+}

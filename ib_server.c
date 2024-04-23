@@ -2,8 +2,16 @@
 #include <sys/epoll.h>
 #include <sys/select.h>
 
+enum fd_type {
+    SERVER_SOCKET,
+    CLIENT_SOCKET,
+    PIPE,
+    CQ,
+};
+
 struct fd_info_s {
     int fd;
+    enum fd_type type;
     void *ptr;
 };
 
@@ -19,9 +27,14 @@ struct server_resources_s {
 int create_epoll(void);
 void create_pipe(int pipefd[2]);
 struct server_resources_s *create_server_resources(void);
-void register_event(int epoll_fd, int registered_fd, void *fd_info);
+void register_event(int epoll_fd, int registered_fd, enum fd_type type, void *fd_info);
 int poll_event(int epoll_fd, struct epoll_event *events);
+void accept_ib_client(struct server_resources_s *res);
 void poll_completion(struct server_resources_s *res);
+struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_num);
+void enqueue_job(struct queue_s *queue, struct ib_resources_s *ib_res);
+void send_response(struct fd_info_s *fd_info);
+void disconnect_client(struct fd_info_s *fd_info);
 void free_response(struct pipe_response_s *response);
 void destroy_res(struct server_resources_s *res);
 
@@ -36,29 +49,23 @@ int main(int argc, char const *argv[])
         for (int i = 0; i < ready_fd; i++) {
             struct fd_info_s *fd_info = (struct fd_info_s *)events[i].data.ptr;
 
-            if (fd_info->fd == res->sock) {
-                struct ib_resources_s *ib_res = accept_ib_client(res->sock, &res->ib_handle);
-                register_event(res->epoll_fd, ib_res->sock, ib_res);
-                put(res->qp_map, &ib_res->qp->qp_num, ib_res);
-            }
-            else if(fd_info->fd == res->ib_handle.cq_channel->fd) {
-                poll_completion(res);
-            }
-            
-            else if(fd_info->fd == res->pipefd[0]) {
-                struct pipe_response_s *response;
-                read(fd_info->fd, &response, sizeof(&response));
-                strcpy(response->ib_res->mr_addr, response->body);
-                post_send(response->ib_res);
-                free_response(response);
-            }
-            else {
-                char buf[256];
-                int rc = recv(fd_info->fd, buf, sizeof(buf), 0);
-                if (rc == 0) {
-                    destroy_ib_resource(fd_info->ptr);
-                    free(fd_info);
-                }
+            switch (fd_info->type) {
+                case SERVER_SOCKET:
+                    accept_ib_client(res);
+                    break;
+
+                case CQ:
+                    poll_completion(res);
+                    break;
+                
+                case PIPE:
+                    send_response(fd_info);
+                    break;
+                
+                case CLIENT_SOCKET:
+                    disconnect_client(fd_info);
+                default:
+                    break;
             }
         }
     }
@@ -93,15 +100,16 @@ struct server_resources_s *create_server_resources(void) {
     init_wthr_pool(&res->queue, res->pipefd[1]);
     create_ib_handle(&res->ib_handle);
 
-    register_event(res->epoll_fd, res->sock, NULL);
-    register_event(res->epoll_fd, res->pipefd[0], NULL);
-    register_event(res->epoll_fd, res->ib_handle.cq_channel->fd, NULL);
+    register_event(res->epoll_fd, res->sock, SERVER_SOCKET, NULL);
+    register_event(res->epoll_fd, res->pipefd[0], PIPE, NULL);
+    register_event(res->epoll_fd, res->ib_handle.cq_channel->fd, CQ, NULL);
     return res;
 }
 
-void register_event(int epoll_fd, int registered_fd, void *ptr) {
+void register_event(int epoll_fd, int registered_fd, enum fd_type type, void *ptr) {
     struct fd_info_s *fd_info = (struct fd_info_s *)malloc(sizeof(struct fd_info_s));
     fd_info->fd = registered_fd;
+    fd_info->type = type;
     fd_info->ptr = ptr;
 
     struct epoll_event ev;
@@ -122,18 +130,54 @@ int poll_event(int epoll_fd, struct epoll_event *events) {
     return ready_fd;
 }
 
+void accept_ib_client(struct server_resources_s *res) {
+    struct ib_resources_s *ib_res = create_init_ib_resources(&res->ib_handle);
+    
+    struct sockaddr_in client_addr;
+    ib_res->sock = accept_socket(res->sock, &client_addr);
+    if (recv_qp_sync_data(ib_res) < 0) {
+        exit(EXIT_FAILURE);
+    }
+    modify_qp_to_init(ib_res);
+    modify_qp_to_rtr(ib_res);
+    modify_qp_to_rts(ib_res);
+    
+    post_receive(ib_res);
+    send_qp_sync_data(ib_res);
+
+    register_event(res->epoll_fd, ib_res->sock, CLIENT_SOCKET, ib_res);
+    put(res->qp_map, &ib_res->qp->qp_num, ib_res);
+}
+
+void send_response(struct fd_info_s *fd_info) {
+    struct pipe_response_s *response;
+    read(fd_info->fd, &response, sizeof(&response));
+    strcpy(response->ib_res->mr_addr, response->body);
+    post_send(response->ib_res);
+    free_response(response);
+}
+
+void disconnect_client(struct fd_info_s *fd_info) {
+    char buf[256];
+    int rc = recv(fd_info->fd, buf, sizeof(buf), 0);
+    if (rc == 0) {
+        struct ib_resources_s *ib_res = (struct ib_resources_s *)fd_info->ptr;
+        destroy_ib_resource(fd_info->ptr);
+        free(fd_info);
+    }
+}
+
 void free_response(struct pipe_response_s *response) {
     free(response->body);
     free(response);
 }
 
 void poll_completion(struct server_resources_s *res) {
-    int rc;
     struct ibv_cq *event_cq;
     void *event_cq_ctx;
     struct ibv_wc wc;
     
-    rc = ibv_get_cq_event(res->ib_handle.cq_channel, &event_cq, &event_cq_ctx);
+    int rc = ibv_get_cq_event(res->ib_handle.cq_channel, &event_cq, &event_cq_ctx);
     if (rc) {
         perror("ibv_get_cq_event");
         exit(EXIT_FAILURE);
@@ -141,44 +185,54 @@ void poll_completion(struct server_resources_s *res) {
 
     do {
         rc = ibv_poll_cq(event_cq, 1, &wc);
-        if (rc < 0) {
+        if (rc == 0) {
+            continue;
+        }
+        else if (rc < 0) {
             perror("ibv_poll_cq");
             exit(EXIT_FAILURE);
         }
         
-        if (rc == 0) {
-            continue;
-        }
 
         if (wc.status != IBV_WC_SUCCESS) {
             fprintf(stderr, "Failed status %s (%d) for wr_id %d\n", ibv_wc_status_str(wc.status), wc.status, (int)wc.wr_id);
             exit(EXIT_FAILURE);
         }
 
-        struct ib_resources_s *ib_res = (struct ib_resources_s *) get(res->qp_map, &wc.qp_num);
-        if (ib_res == NULL) {
-            fprintf(stderr, "Failed to get ib_res\n");
-            exit(EXIT_FAILURE);
-        }
+        struct ib_resources_s *ib_res = get_ib_resources(res->qp_map, wc.qp_num);
+        switch (wc.opcode) {
+            case IBV_WC_RECV:
+                enqueue_job(&res->queue, ib_res);
+                break;
+            
+            case IBV_WC_SEND:
+                post_receive(ib_res);
+                break;
 
-        if (wc.opcode == IBV_WC_RECV) {
-            struct job_s job = {ib_res, ib_res->mr_addr};
-            enqueue(&res->queue, &job);
-        }
-
-        if (wc.opcode == IBV_WC_SEND) {
-            post_receive(ib_res);
+            default:
+                break;
         }
 
     } while (rc == 0);
 
     ibv_ack_cq_events(event_cq, 1);
+    notify_cq(res->ib_handle.cq);
+}
 
-    rc = ibv_req_notify_cq(res->ib_handle.cq, 0);
-    if (rc) {
-        perror("ibv_req_notify_cq");
+struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_num) {
+    struct ib_resources_s * ib_res = (struct ib_resources_s *) get(qp_map, &qp_num);
+    if (ib_res == NULL) {
+        fprintf(stderr, "Failed to get ib_res\n");
         exit(EXIT_FAILURE);
     }
+    return ib_res;
+}
+
+void enqueue_job(struct queue_s *queue, struct ib_resources_s *ib_res) {
+    struct job_s *job = (struct job_s *)malloc(sizeof(struct job_s));
+    job->ib_res = ib_res;
+    job->data = ib_res->mr_addr;
+    enqueue(queue, job);
 }
 
 void destroy_res(struct server_resources_s *res) {

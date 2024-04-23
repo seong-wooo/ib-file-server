@@ -51,7 +51,6 @@ void send_qp_sync_data(struct ib_resources_s *ib_res);
 int recv_qp_sync_data(struct ib_resources_s *ib_res);
 struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle);
 socket_t accept_socket(socket_t sock, struct sockaddr_in *client_addr);
-struct ib_resources_s *accept_ib_client(socket_t sock, struct ib_handle_s *ib_handle);
 void post_receive(struct ib_resources_s *ib_res);
 void post_send(struct ib_resources_s *ib_res);
 void destroy_qp(struct ibv_qp *qp);
@@ -65,7 +64,7 @@ void close_socket(socket_t sock);
 void destroy_ibv_port_attr(struct ibv_port_attr *port_attr);
 void destroy_ib_resource(struct ib_resources_s *ib_res);
 void destroy_ib_handle(struct ib_handle_s *ib_handle);
-void poll_completion_for_client(struct ib_handle_s *ib_handle);
+void notify_cq(struct ibv_cq *cq);
 
 struct ibv_device **create_device_list() {
     struct ibv_device **device_list = ibv_get_device_list(NULL);
@@ -115,6 +114,14 @@ struct ibv_comp_channel *create_comp_channel(struct ibv_context *ctx) {
 
 }
 
+void notify_cq(struct ibv_cq *cq) {
+    int rc = ibv_req_notify_cq(cq, 0);
+    if (rc) {
+        perror("ibv_req_notify_cq");
+        exit(EXIT_FAILURE);
+    }
+}
+
 struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *cq_channel) {
     if (!ctx) 
         return NULL;
@@ -125,11 +132,7 @@ struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *c
         exit(EXIT_FAILURE);
     }
 
-    int rc = ibv_req_notify_cq(cq, 0);
-    if (rc) {
-        perror("ibv_req_notify_cq");
-        exit(EXIT_FAILURE);
-    }
+    notify_cq(cq);
 
     return cq;
 }
@@ -331,36 +334,6 @@ struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle) {
     return ib_res;
 }
 
-socket_t accept_socket(socket_t sock, struct sockaddr_in *client_addr) {
-    socket_t client_sock;
-    int addrlen = sizeof(client_addr);
-
-    client_sock = accept(sock, (struct sockaddr *)client_addr, &addrlen);
-    if (client_sock == INVALID_SOCKET) {
-        err_display("accept()");
-    }
-    print_connected_client(client_addr);
-    return client_sock;
-}
-
-struct ib_resources_s *accept_ib_client(socket_t sock, struct ib_handle_s *ib_handle) {
-    struct ib_resources_s *ib_res = create_init_ib_resources(ib_handle);
-    
-    struct sockaddr_in client_addr;
-    ib_res->sock = accept_socket(sock, &client_addr);
-    if (recv_qp_sync_data(ib_res) < 0) {
-        exit(EXIT_FAILURE);
-    }
-    modify_qp_to_init(ib_res);
-    modify_qp_to_rtr(ib_res);
-    modify_qp_to_rts(ib_res);
-    
-    post_receive(ib_res);
-    send_qp_sync_data(ib_res);
-
-    return ib_res;
-}
-
 void post_receive(struct ib_resources_s *ib_res)
 {
     struct ibv_sge sge;
@@ -515,41 +488,4 @@ void destroy_ib_handle(struct ib_handle_s *ib_handle) {
     destroy_ibv_port_attr(ib_handle->port_attr);
     destroy_device_list(ib_handle->device_list);
     memset(ib_handle, 0, sizeof(struct ib_handle_s));
-}
-
-void poll_completion_for_client(struct ib_handle_s *ib_handle) {
-    int rc;
-    struct ibv_cq *event_cq;
-    void *event_cq_ctx;
-    struct ibv_wc wc;
-    
-    rc = ibv_req_notify_cq(ib_handle->cq, 0);
-    if (rc) {
-        perror("ibv_req_notify_cq");
-        exit(EXIT_FAILURE);
-    }
-
-    rc = ibv_get_cq_event(ib_handle->cq_channel, &event_cq, &event_cq_ctx);
-    if (rc) {
-        perror("ibv_get_cq_event");
-        exit(EXIT_FAILURE);
-    }
-
-    do {
-        rc = ibv_poll_cq(event_cq, 1, &wc);
-        if (rc < 0) {
-            perror("ibv_poll_cq");
-            exit(EXIT_FAILURE);
-        }
-        printf("[wc.opcode]]:%d\n",wc.opcode);
-    } while (rc == 0);
-    
-
-    ibv_ack_cq_events(event_cq, 1);
-
-    rc = ibv_req_notify_cq(ib_handle->cq, 0);
-    if (rc) {
-        perror("ibv_req_notify_cq");
-        exit(EXIT_FAILURE);
-    }
 }
