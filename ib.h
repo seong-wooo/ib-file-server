@@ -65,9 +65,7 @@ void close_socket(socket_t sock);
 void destroy_ibv_port_attr(struct ibv_port_attr *port_attr);
 void destroy_ib_resource(struct ib_resources_s *ib_res);
 void destroy_ib_handle(struct ib_handle_s *ib_handle);
-void poll_completion(struct ib_handle_s *ib_handle);
 void poll_completion_for_client(struct ib_handle_s *ib_handle);
-
 
 struct ibv_device **create_device_list() {
     struct ibv_device **device_list = ibv_get_device_list(NULL);

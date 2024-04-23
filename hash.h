@@ -14,29 +14,28 @@ struct hash_map_s {
     hash_node_s** buckets;
 };
 
-
-struct hash_map_s* createHashMap(int size) {
-    struct hash_map_s* hashMap = (struct hash_map_s*)malloc(sizeof(struct hash_map_s));
-    if (hashMap == NULL) {
+struct hash_map_s* create_hash_map(int size) {
+    struct hash_map_s* hash_map = (struct hash_map_s*)malloc(sizeof(struct hash_map_s));
+    if (hash_map == NULL) {
         fprintf(stderr, "Memory allocation failed.\n");
         exit(EXIT_FAILURE);
     }
 
-    hashMap->size = size;
-    hashMap->buckets = (hash_node_s**)malloc(sizeof(hash_node_s*) * size);
-    if (hashMap->buckets == NULL) {
+    hash_map->size = size;
+    hash_map->buckets = (hash_node_s**)malloc(sizeof(hash_node_s*) * size);
+    if (hash_map->buckets == NULL) {
         fprintf(stderr, "Memory allocation failed.\n");
         exit(EXIT_FAILURE);
     }
 
     for (int i = 0; i < size; ++i) {
-        hashMap->buckets[i] = NULL;
+        hash_map->buckets[i] = NULL;
     }
 
-    return hashMap;
+    return hash_map;
 }
 
-int hash(struct hash_map_s* hashMap, void* key) {
+int hash(struct hash_map_s* hash_map, void* key) {
     if (key == NULL) {
         fprintf(stderr, "Invalid key.\n");
         exit(EXIT_FAILURE);
@@ -44,50 +43,51 @@ int hash(struct hash_map_s* hashMap, void* key) {
 
     if (sizeof(key) == sizeof(uint32_t)) {
         uint32_t uint_key = *((uint32_t*)key);
-        return uint_key % hashMap->size;
-    } else if (sizeof(key) == sizeof(char*)) {
+        return uint_key % hash_map->size;
+    } 
+    else if (sizeof(key) == sizeof(char*)) {
         char* str_key = (char*)key;
-        unsigned long hashValue = 0;
+        unsigned long hash_value = 0;
         int len = strlen(str_key);
         for (int i = 0; i < len; ++i) {
-            hashValue = (hashValue << 5) + str_key[i];
+            hash_value = (hash_value << 5) + str_key[i];
         }
-        return hashValue % hashMap->size;
-    } else {
+        return hash_value % hash_map->size;
+    } 
+    else {
         fprintf(stderr, "Unsupported key type.\n");
         exit(EXIT_FAILURE);
     }
 }
 
-void put(struct hash_map_s* hashMap, void* key, void* value) {
-    int index = hash(hashMap, key);
-
-    hash_node_s* newNode = (hash_node_s*)malloc(sizeof(hash_node_s));
-    if (newNode == NULL) {
+void put(struct hash_map_s* hash_map, void* key, void* value) {
+    int index = hash(hash_map, key);
+    hash_node_s* new_node = (hash_node_s*)malloc(sizeof(hash_node_s));
+    if (new_node == NULL) {
         fprintf(stderr, "Memory allocation failed.\n");
         exit(EXIT_FAILURE);
     }
-    newNode->key = key;
-    newNode->value = value;
-    newNode->next = NULL;
+    new_node->key = key;
+    new_node->value = value;
+    new_node->next = NULL;
 
-    if (hashMap->buckets[index] == NULL) {
-        hashMap->buckets[index] = newNode;
+    if (hash_map->buckets[index] == NULL) {
+        hash_map->buckets[index] = new_node;
     } else {
-        hash_node_s* temp = hashMap->buckets[index];
+        hash_node_s* temp = hash_map->buckets[index];
         while (temp->next != NULL) {
             temp = temp->next;
         }
-        temp->next = newNode;
+        temp->next = new_node;
     }
 }
 
-char* get(struct hash_map_s* hashMap, void* key) {
-    int index = hash(hashMap, key);
+void* get(struct hash_map_s* hash_map, void* key) {
+    int index = hash(hash_map, key);
 
-    hash_node_s* temp = hashMap->buckets[index];
+    hash_node_s* temp = hash_map->buckets[index];
     while (temp != NULL) {
-        if (temp->key == key) {
+        if (memcmp(temp->key, key, sizeof(uint32_t)) == 0 || strcmp((char*)temp->key, (char*)key) == 0) {
             return temp->value;
         }
         temp = temp->next;
@@ -96,18 +96,18 @@ char* get(struct hash_map_s* hashMap, void* key) {
     return NULL;
 }
 
-void freeHashMap(struct hash_map_s* hashMap) {
-    if (hashMap == NULL) {
+void free_hash_map(struct hash_map_s* hash_map) {
+    if (hash_map == NULL) {
         return;
     }
-    for (int i = 0; i < hashMap->size; ++i) {
-        hash_node_s* node = hashMap->buckets[i];
+    for (int i = 0; i < hash_map->size; ++i) {
+        hash_node_s* node = hash_map->buckets[i];
         while (node != NULL) {
             hash_node_s* temp = node;
             node = node->next;
             free(temp);
         }
     }
-    free(hashMap->buckets);
-    free(hashMap);
+    free(hash_map->buckets);
+    free(hash_map);
 }

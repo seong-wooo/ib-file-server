@@ -13,10 +13,11 @@ int main()
             break;
         } 
 
+        create_request(option, ib_res->mr_addr);
+        
         post_send(ib_res);
         poll_completion_for_client(&ib_handle);
         
-        create_request(option, ib_res->mr_addr);
         
         post_receive(ib_res);
         poll_completion_for_client(&ib_handle); 

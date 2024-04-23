@@ -13,6 +13,7 @@ struct server_resources_s {
     struct ib_handle_s ib_handle;
     int pipefd[2];
     struct queue_s queue;
+    struct hash_map_s *qp_map;
 };
 
 int create_epoll(void);
@@ -20,6 +21,7 @@ void create_pipe(int pipefd[2]);
 struct server_resources_s *create_server_resources(void);
 void register_event(int epoll_fd, int registered_fd, void *fd_info);
 int poll_event(int epoll_fd, struct epoll_event *events);
+void poll_completion(struct server_resources_s *res);
 void free_response(struct pipe_response_s *response);
 void destroy_res(struct server_resources_s *res);
 
@@ -37,10 +39,10 @@ int main(int argc, char const *argv[])
             if (fd_info->fd == res->sock) {
                 struct ib_resources_s *ib_res = accept_ib_client(res->sock, &res->ib_handle);
                 register_event(res->epoll_fd, ib_res->sock, ib_res);
+                put(res->qp_map, &ib_res->qp->qp_num, ib_res);
             }
             else if(fd_info->fd == res->ib_handle.cq_channel->fd) {
-                // wc에서 qp를 뽑고, qp를 통해 ib_res를 찾아서 ib_res->mr_addr에 저장된 데이터를 pipe로 전송
-                poll_completion(&res->ib_handle);
+                poll_completion(res);
             }
             
             else if(fd_info->fd == res->pipefd[0]) {
@@ -86,6 +88,7 @@ struct server_resources_s *create_server_resources(void) {
     struct server_resources_s *res = (struct server_resources_s *)malloc(sizeof(struct server_resources_s));
     res->epoll_fd = create_epoll();
     res->sock = create_server_socket();
+    res->qp_map = create_hash_map(1000);
     create_pipe(res->pipefd);
     init_wthr_pool(&res->queue, res->pipefd[1]);
     create_ib_handle(&res->ib_handle);
@@ -119,19 +122,18 @@ int poll_event(int epoll_fd, struct epoll_event *events) {
     return ready_fd;
 }
 
-
 void free_response(struct pipe_response_s *response) {
     free(response->body);
     free(response);
 }
 
-void poll_completion(struct ib_handle_s *ib_handle) {
+void poll_completion(struct server_resources_s *res) {
     int rc;
     struct ibv_cq *event_cq;
     void *event_cq_ctx;
     struct ibv_wc wc;
     
-    rc = ibv_get_cq_event(ib_handle->cq_channel, &event_cq, &event_cq_ctx);
+    rc = ibv_get_cq_event(res->ib_handle.cq_channel, &event_cq, &event_cq_ctx);
     if (rc) {
         perror("ibv_get_cq_event");
         exit(EXIT_FAILURE);
@@ -143,12 +145,36 @@ void poll_completion(struct ib_handle_s *ib_handle) {
             perror("ibv_poll_cq");
             exit(EXIT_FAILURE);
         }
-        printf("[wc.opcode]]:%d\n",wc.opcode);
+        
+        if (rc == 0) {
+            continue;
+        }
+
+        if (wc.status != IBV_WC_SUCCESS) {
+            fprintf(stderr, "Failed status %s (%d) for wr_id %d\n", ibv_wc_status_str(wc.status), wc.status, (int)wc.wr_id);
+            exit(EXIT_FAILURE);
+        }
+
+        struct ib_resources_s *ib_res = (struct ib_resources_s *) get(res->qp_map, &wc.qp_num);
+        if (ib_res == NULL) {
+            fprintf(stderr, "Failed to get ib_res\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if (wc.opcode == IBV_WC_RECV) {
+            struct job_s job = {ib_res, ib_res->mr_addr};
+            enqueue(&res->queue, &job);
+        }
+
+        if (wc.opcode == IBV_WC_SEND) {
+            post_receive(ib_res);
+        }
+
     } while (rc == 0);
 
     ibv_ack_cq_events(event_cq, 1);
 
-    rc = ibv_req_notify_cq(ib_handle->cq, 0);
+    rc = ibv_req_notify_cq(res->ib_handle.cq, 0);
     if (rc) {
         perror("ibv_req_notify_cq");
         exit(EXIT_FAILURE);

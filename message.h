@@ -141,7 +141,7 @@ char *create_request(char option, char* buf) {
 
 struct hash_map_s *parse_message(int hash_size, char *buf)
 {
-    struct hash_map_s *body = createHashMap(hash_size);
+    struct hash_map_s *body = create_hash_map(hash_size);
     char *key;
     char *value;
 

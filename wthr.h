@@ -203,7 +203,7 @@ void create_response(struct job_s *job) {
         printf("잘못된 옵션입니다.\n");
         break;
     }
-    freeHashMap(body);
+    free_hash_map(body);
     
     char* pipe_body = (char *)malloc(strlen(buf) + 1);
     strcpy(pipe_body, buf);
