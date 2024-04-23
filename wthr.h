@@ -183,7 +183,8 @@ void read_list(struct hash_map_s *body, char *response)
 void create_response(struct job_s *job) {
     struct hash_map_s *body = parse_message(HASH_SIZE, job->data);
     char *option = get(body, OPTION);
-    char buf[QP_BUF_SIZE];
+    char *buf = (char *)malloc(QP_BUF_SIZE);
+    memset(buf, 0, QP_BUF_SIZE);
     switch (*option) {
     case WRITE:
         write_flie(body, buf);
@@ -207,7 +208,7 @@ void create_response(struct job_s *job) {
     
     char* pipe_body = (char *)malloc(strlen(buf) + 1);
     strcpy(pipe_body, buf);
-    
+    free(buf);
     struct pipe_response_s *response = (struct pipe_response_s *)malloc(sizeof(struct pipe_response_s));
     response->ib_res = job->ib_res;
     response->body = pipe_body;
