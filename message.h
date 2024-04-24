@@ -20,6 +20,23 @@
 
 #define HASH_SIZE 10
 
+struct packet_header_s {
+    char option;
+    char filename[20];
+    int offset;
+    int length;
+    int body_size;
+};
+
+struct packet_body_s {
+    char *data;
+};
+
+struct packet_s {
+    struct packet_header_s header;
+    struct packet_body_s body;
+};
+
 char get_option(void) {
     char option;
     do {
@@ -31,7 +48,6 @@ char get_option(void) {
 
     return option;
 }
-
 
 int get_offset(void) {
     int offset;
@@ -51,108 +67,74 @@ int get_length(void) {
     return length;
 }
 
-char* get_data(void) {
-    char temp[1000];
-    char* data;
-
+void get_data(char **data) {
     printf("[쓸 내용]: ");
+    char temp[4096];
     fgets(temp, sizeof(temp), stdin);
     temp[strlen(temp) - 1] = '\0';
-    data = (char *)malloc(strlen(temp) + 1);
-    strcpy(data, temp);
-    
-    return data;
+
+    *data = (char *)malloc(strlen(temp) + 1);
+    strcpy(*data, temp);
 }
 
-char* get_filename(void) {
-    char temp[1000];
-    char* filename;
-
+void get_filename(char* filename) {
     printf("[파일명]: ");
-    fgets(temp, sizeof(temp), stdin);
-    temp[strlen(temp) - 1] = '\0';
-    filename = (char *)malloc(strlen(temp) + 1);
-    strcpy(filename, temp);
-    
-    return filename;
+    fgets(filename, 20, stdin);
+    filename[strlen(filename) - 1] = '\0';
 }
 
-void get_list(char* buf) {
-    sprintf(buf, "%s%s%c", OPTION, TOKEN_PARSER, LIST);
+void get_list_packet(struct packet_s *packet) {
+    packet->header.option = LIST;
 }
 
-void get_read(char* buf) {
-    char* filename;
-    int offset;
-    int length;
-
-    filename = get_filename();
-    offset = get_offset();
-    length = get_length();
-    sprintf(buf, "%s%s%c%s%s%s%s%s%s%s%d%s%s%s%d", OPTION, TOKEN_PARSER, READ, LINE_PARSER, FILENAME, TOKEN_PARSER, filename, 
-            LINE_PARSER, OFFSET, TOKEN_PARSER, offset, LINE_PARSER, LENGTH, TOKEN_PARSER, length);
-    free(filename);
+void get_read_packet(struct packet_s *packet) {
+    packet->header.option = READ;
+    get_filename(packet->header.filename);
+    packet->header.offset = get_offset();
+    packet->header.length = get_length();
 }
 
-void get_write(char* buf) {
-    char* filename;
-    int offset;
-    int length;
-    char* data;
-
-    filename = get_filename();
-    offset = get_offset();
-    data = get_data();
-    sprintf(buf, "%s%s%c%s%s%s%s%s%s%s%d%s%s%s%s", OPTION, TOKEN_PARSER, WRITE, LINE_PARSER, FILENAME, TOKEN_PARSER, filename, 
-            LINE_PARSER, OFFSET, TOKEN_PARSER, offset, LINE_PARSER, DATA, TOKEN_PARSER, data);
-    
-    free(filename);
-    free(data);
+void get_write(struct packet_s *packet) {
+    packet->header.option = WRITE;
+    get_filename(packet->header.filename);
+    packet->header.offset = get_offset();
+    get_data(&packet->body.data);
+    packet->header.body_size = strlen(packet->body.data) + 1;
 }
 
-void get_delete(char* buf) {
-    char* filename;
-
-    filename = get_filename();
-    sprintf(buf, "%s%s%c%s%s%s%s", OPTION, TOKEN_PARSER, DELETE, LINE_PARSER, FILENAME, TOKEN_PARSER, filename);
-    free(filename);
+void get_delete(struct packet_s *packet) {
+    packet->header.option = DELETE;
+    get_filename(packet->header.filename);
 }
 
-char *create_request(char option, char* buf) {
+struct packet_s *create_request_packet(char option) {
+    struct packet_s *packet = malloc(sizeof(struct packet_s));
+    memset(&packet->header, 0, sizeof(packet->header));
     switch (option) {
-            case LIST:
-                get_list(buf);
-                break;
-            case READ:
-                get_read(buf);
-                break;
-            case WRITE:
-                get_write(buf);
-                break;
-            case DELETE:
-                get_delete(buf);
-                break;
-            default:
-                break;
-        }
-
-    return NULL;
-}
-
-struct hash_map_s *parse_message(int hash_size, char *buf)
-{
-    struct hash_map_s *body = create_hash_map(hash_size);
-    char *key;
-    char *value;
-
-    char *str = strtok(buf, TOKEN_PARSER);
-    while (str != NULL) {
-        key = str;
-        str = strtok(NULL, LINE_PARSER);
-        value = str;
-        str = strtok(NULL, TOKEN_PARSER);
-        put(body, key, value);
+        case LIST:
+            get_list_packet(packet);
+            break;
+        case READ:
+            get_read_packet(packet);
+            break;
+        case WRITE:
+            get_write(packet);
+            break;
+        case DELETE:
+            get_delete(packet);
+            break;
+        default:
+            break;
     }
 
-    return body;
+    return packet;
+}
+
+struct packet_s *create_response_packet(void *data) {
+    struct packet_s *packet = malloc(sizeof(struct packet_s));
+    memcpy(&packet->header, data, sizeof(struct packet_header_s));
+    packet->body.data = (char *)malloc(packet->header.body_size);
+    memcpy(packet->body.data, data + sizeof(struct packet_header_s), packet->header.body_size);
+    
+    return packet;
 }

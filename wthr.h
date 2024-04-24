@@ -2,14 +2,13 @@
 #include <dirent.h>
 #include "ib.h"
 #include "log.h"
-#include "message.h"
 
 #define MAX_THREADS 8
 #define HASH_SIZE 10
 
 struct job_s {
     struct ib_resources_s *ib_res;
-    char *data;
+    struct packet_s *packet;
 };
 
 struct node_s {
@@ -26,7 +25,7 @@ struct queue_s {
 
 struct pipe_response_s {
     struct ib_resources_s *ib_res;
-    char* body;
+    struct packet_s packet;
 };
 
 int cthred_pipefd;
@@ -88,11 +87,11 @@ void freeQueue(struct queue_s *queue) {
     pthread_mutex_destroy(&(queue->mutex));
 }
 
-void write_flie(struct hash_map_s *body, char *response)
+void write_flie(struct packet_s *packet, char *response)
 {
-    char *filename = get(body, FILENAME);
-    int offset = atoi(get(body, OFFSET));
-    char *data = get(body, DATA);
+    char *filename = packet->header.filename;
+    int offset = packet->header.offset;
+    char *data = packet->body.data;
     char log_message[256];
 
     FILE *fp = fopen(filename, "rb+");
@@ -120,11 +119,11 @@ void write_flie(struct hash_map_s *body, char *response)
     strcpy(response, "Data written successfully");
 }
 
-void read_file(struct hash_map_s *body, char *response)
+void read_file(struct packet_s *packet, char *response)
 {
-    char *filename = get(body, FILENAME);
-    int offset = atoi(get(body, OFFSET));
-    int length = atoi(get(body, LENGTH));
+    char *filename = packet->header.filename;
+    int offset = packet->header.offset;
+    int length = packet->header.length;
 
     FILE *fp = fopen(filename, "r");
     if (fp == NULL) {
@@ -147,9 +146,9 @@ void read_file(struct hash_map_s *body, char *response)
     }
 }
 
-void delete_file(struct hash_map_s *body, char *response)
+void delete_file(struct packet_s *packet, char *response)
 {
-    char *filename = get(body, FILENAME);
+    char *filename = packet->header.filename;
     if (unlink(filename) == 0) {
         char log_message[256];
         snprintf(log_message, 256, "option=%c, filename=%s", DELETE, filename);
@@ -161,7 +160,7 @@ void delete_file(struct hash_map_s *body, char *response)
     }
 }
 
-void read_list(struct hash_map_s *body, char *response)
+void read_list(char *response)
 {
     DIR *dir;
     struct dirent *entry;
@@ -181,37 +180,32 @@ void read_list(struct hash_map_s *body, char *response)
 }
 
 void create_response(struct job_s *job) {
-    struct hash_map_s *body = parse_message(HASH_SIZE, job->data);
-    char *option = get(body, OPTION);
     char *buf = (char *)malloc(QP_BUF_SIZE);
     memset(buf, 0, QP_BUF_SIZE);
-    switch (*option) {
+    
+    switch (job->packet->header.option) {
     case WRITE:
-        write_flie(body, buf);
+        write_flie(job->packet, buf);
         break;
     case READ:
-        read_file(body, buf);
+        read_file(job->packet, buf);
         break;
     case DELETE:
-        delete_file(body, buf);
+        delete_file(job->packet, buf);
         break;
-
     case LIST:
-        read_list(body, buf);
+        read_list(buf);
         break;
 
     default:
         printf("잘못된 옵션입니다.\n");
         break;
     }
-    free_hash_map(body);
     
-    char* pipe_body = (char *)malloc(strlen(buf) + 1);
-    strcpy(pipe_body, buf);
-    free(buf);
     struct pipe_response_s *response = (struct pipe_response_s *)malloc(sizeof(struct pipe_response_s));
     response->ib_res = job->ib_res;
-    response->body = pipe_body;
+    response->packet.header.body_size = strlen(buf) + 1;
+    response->packet.body.data = buf;
     
     write(cthred_pipefd, &response, sizeof(&response));
 }

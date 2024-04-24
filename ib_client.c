@@ -1,5 +1,4 @@
 #include "ib.h"
-#include "message.h"
 
 void poll_completion(struct ib_handle_s *ib_handle);
 
@@ -15,16 +14,16 @@ int main()
             break;
         } 
 
-        create_request(option, ib_res->mr_addr);
+        struct packet_s *request_packet = create_request_packet(option);
         
-        post_send(ib_res);
+        post_send(ib_res, request_packet);
         poll_completion(&ib_handle);
-        
         
         post_receive(ib_res);
         poll_completion(&ib_handle); 
+        struct packet_s *response_packet = create_response_packet(ib_res->mr_addr);
         
-        printf("[받은 데이터]:\n%s\n", ib_res->mr_addr); 
+        printf("[받은 데이터]:\n%s\n", response_packet->body.data); 
     }
     destroy_ib_resource(ib_res);
     destroy_ib_handle(&ib_handle);
@@ -51,7 +50,6 @@ void poll_completion(struct ib_handle_s *ib_handle) {
             perror("ibv_poll_cq");
             exit(EXIT_FAILURE);
         }
-        printf("[wc.opcode]]:%d\n",wc.opcode);
     } while (rc == 0);
     
 

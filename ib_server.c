@@ -35,7 +35,6 @@ struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_n
 void enqueue_job(struct queue_s *queue, struct ib_resources_s *ib_res);
 void send_response(struct fd_info_s *fd_info);
 void disconnect_client(struct fd_info_s *fd_info);
-void free_response(struct pipe_response_s *response);
 void destroy_res(struct server_resources_s *res);
 
 int main(int argc, char const *argv[])
@@ -152,9 +151,9 @@ void accept_ib_client(struct server_resources_s *res) {
 void send_response(struct fd_info_s *fd_info) {
     struct pipe_response_s *response;
     read(fd_info->fd, &response, sizeof(&response));
-    strcpy(response->ib_res->mr_addr, response->body);
-    post_send(response->ib_res);
-    free_response(response);
+
+    post_send(response->ib_res, &response->packet);
+    free(response);
 }
 
 void disconnect_client(struct fd_info_s *fd_info) {
@@ -165,11 +164,6 @@ void disconnect_client(struct fd_info_s *fd_info) {
         destroy_ib_resource(fd_info->ptr);
         free(fd_info);
     }
-}
-
-void free_response(struct pipe_response_s *response) {
-    free(response->body);
-    free(response);
 }
 
 void poll_completion(struct server_resources_s *res) {
@@ -230,8 +224,10 @@ struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_n
 
 void enqueue_job(struct queue_s *queue, struct ib_resources_s *ib_res) {
     struct job_s *job = (struct job_s *)malloc(sizeof(struct job_s));
+    struct packet_s *packet = create_response_packet(ib_res->mr_addr);
+    
     job->ib_res = ib_res;
-    job->data = ib_res->mr_addr;
+    job->packet = packet;
     enqueue(queue, job);
 }
 

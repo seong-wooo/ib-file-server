@@ -1,6 +1,7 @@
 #include <infiniband/verbs.h>
 #include <fcntl.h>
 #include "tcp_ip.h"
+#include "message.h"
 
 #define IB_PORT 1
 #define QP_BUF_SIZE 4096
@@ -52,7 +53,7 @@ int recv_qp_sync_data(struct ib_resources_s *ib_res);
 struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle);
 socket_t accept_socket(socket_t sock, struct sockaddr_in *client_addr);
 void post_receive(struct ib_resources_s *ib_res);
-void post_send(struct ib_resources_s *ib_res);
+void post_send(struct ib_resources_s *ib_res, struct packet_s *packet);
 void destroy_qp(struct ibv_qp *qp);
 void destroy_mr(struct ibv_mr *mr);
 void destroy_cq(struct ibv_cq *cq);
@@ -362,16 +363,17 @@ void post_receive(struct ib_resources_s *ib_res)
     }
 }
 
-void post_send(struct ib_resources_s *ib_res)
-{
+void post_send(struct ib_resources_s *ib_res, struct packet_s *packet) {
     struct ibv_sge sge;
     struct ibv_send_wr send_wr;
     struct ibv_send_wr *bad_wr;
 
+    size_t header_size = sizeof(struct packet_header_s);
+
     memset(&sge, 0, sizeof(sge));
     sge = (struct ibv_sge){
         .addr = (uintptr_t)ib_res->mr_addr,
-        .length = strlen(ib_res->mr_addr) + 1,
+        .length = header_size + packet->header.body_size,
         .lkey = ib_res->ib_handle->mr->lkey,
     };
 
@@ -384,6 +386,9 @@ void post_send(struct ib_resources_s *ib_res)
         .opcode = IBV_WR_SEND,
         .send_flags = IBV_SEND_SIGNALED,
     };
+    
+    memcpy(ib_res->mr_addr, &packet->header, header_size);
+    memcpy(ib_res->mr_addr + header_size, packet->body.data, packet->header.body_size);
 
     if (ibv_post_send(ib_res->qp, &send_wr, &bad_wr)) {
         perror("ibv_post_send");
