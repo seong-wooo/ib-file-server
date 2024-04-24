@@ -1,6 +1,12 @@
-#include "wthr.h"
 #include <sys/epoll.h>
 #include <sys/select.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "wthr.h"
+#include "hash.h"
+#include "ib.h"
 
 enum fd_type {
     SERVER_SOCKET,
@@ -132,8 +138,7 @@ int poll_event(int epoll_fd, struct epoll_event *events) {
 void accept_ib_client(struct server_resources_s *res) {
     struct ib_resources_s *ib_res = create_init_ib_resources(&res->ib_handle);
     
-    struct sockaddr_in client_addr;
-    ib_res->sock = accept_socket(res->sock, &client_addr);
+    ib_res->sock = accept_socket(res->sock);
     if (recv_qp_sync_data(ib_res) < 0) {
         exit(EXIT_FAILURE);
     }
@@ -237,5 +242,6 @@ void destroy_res(struct server_resources_s *res) {
     close(res->pipefd[0]);
     close(res->pipefd[1]);
     freeQueue(&res->queue);
+    free_hash_map(res->qp_map);
     free(res);
 }

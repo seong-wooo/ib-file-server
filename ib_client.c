@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "ib.h"
 
 void poll_completion(struct ib_handle_s *ib_handle);
