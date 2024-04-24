@@ -13,15 +13,13 @@ int main()
         char option = get_option();
         if (option == QUIT) {
             break;
-        } 
-
+        }
         struct packet_s *request_packet = create_request_packet(option);
-        
-        post_send(ib_res, request_packet);
-        poll_completion(&ib_handle);
-        
         post_receive(ib_res);
+        post_send(ib_res, request_packet);
+        
         poll_completion(&ib_handle); 
+        poll_completion(&ib_handle);
         struct packet_s *response_packet = create_response_packet(ib_res->mr_addr);
         
         printf("[받은 데이터]:\n%s\n", response_packet->body.data); 
