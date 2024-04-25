@@ -230,7 +230,7 @@ struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_n
 
 void send_job(struct queue_s *queue, struct ib_resources_s *ib_res) {
     struct job_s *job = (struct job_s *)malloc(sizeof(struct job_s));
-    struct packet_s *packet = create_response_packet(ib_res->mr_addr);
+    struct packet_s *packet = create_response_packet(ib_res->mr->addr);
     
     job->ib_res = ib_res;
     job->packet = packet;

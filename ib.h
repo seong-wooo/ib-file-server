@@ -6,8 +6,8 @@
 #include "message.h"
 
 #define IB_PORT 1
-#define QP_BUF_SIZE 4096
-#define MR_BUF_SIZE (QP_BUF_SIZE * 1024)
+#define MR_BUF_SIZE 4096
+#define MR_POOL_SIZE 1024
 #define MAX_WR 10
 #define COMP_VECTOR 1
 
@@ -25,15 +25,15 @@ struct ib_handle_s {
     struct ibv_pd *pd;
     struct ibv_cq *cq;
     struct ibv_comp_channel *cq_channel;
-    struct ibv_mr *mr;
+    struct queue_s *mr_pool;
 };
 
 struct ib_resources_s {
     struct ib_handle_s *ib_handle;
     struct ibv_qp *qp;
     struct connection_data_s *remote_props;
+    struct ibv_mr *mr;
     socket_t sock;
-    void *mr_addr;
 };
 
 void create_ib_handle(struct ib_handle_s *ib_handle);

@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <infiniband/verbs.h>
 #include <stdlib.h>
+#include "queue.h"
 #include "ib.h"
 
 struct ibv_device **create_device_list() {
@@ -29,11 +30,11 @@ struct ibv_context *create_ibv_context(struct ibv_device **device_list) {
 }
 
 struct ibv_pd *create_ibv_pd(struct ibv_context *ctx) {
-    if (!ctx) 
+    if (!ctx) { 
         return NULL;
+    }
     struct ibv_pd *pd = ibv_alloc_pd(ctx);
-    if (!pd)
-    {
+    if (!pd) {
         perror("ibv_alloc_pd");
         exit(EXIT_FAILURE);
     }
@@ -82,18 +83,30 @@ void *create_buffer(size_t buffer_size) {
         perror("malloc");
         exit(EXIT_FAILURE);
     }
+    memset(mr_addr, 0, buffer_size);
+    
     return mr_addr;
 }
 
-struct ibv_mr *create_ibv_mr(struct ibv_pd *pd, void* mr_addr) {
-    if (!pd || !mr_addr) 
-        return NULL;
+struct ibv_mr *create_mr(struct ibv_pd *pd) {
+    void *mr_addr = create_buffer(MR_BUF_SIZE);
     struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MR_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
     if (!mr) {
         perror("ibv_reg_mr");
         exit(EXIT_FAILURE);
     }
     return mr;
+}
+
+struct queue_s *create_ibv_mr_pool(struct ibv_pd *pd) {
+    struct queue_s* queue = create_queue();
+
+    for (int i = 0; i < MR_POOL_SIZE; i++) {
+        struct ibv_mr *mr = create_mr(pd);
+        enqueue(queue, mr);
+    }
+
+    return queue;
 }
 
 struct ibv_port_attr *create_port_attr(struct ibv_context *ctx) {
@@ -135,27 +148,24 @@ void create_ib_handle(struct ib_handle_s *ib_handle) {
     if (!ib_handle) {
         return;
     }
-    char *mr_addr = create_buffer(MR_BUF_SIZE);
-
     memset(ib_handle, 0, sizeof(ib_handle));
     ib_handle->device_list = create_device_list();
     ib_handle->ctx = create_ibv_context(ib_handle->device_list);
     ib_handle->pd = create_ibv_pd(ib_handle->ctx);
     ib_handle->cq_channel = create_comp_channel(ib_handle->ctx);
+    ib_handle->mr_pool = create_ibv_mr_pool(ib_handle->pd);
     ib_handle->cq = create_ibv_cq(ib_handle->ctx, ib_handle->cq_channel);
-    
-    ib_handle->mr = create_ibv_mr(ib_handle->pd, mr_addr);
     ib_handle->port_attr = create_port_attr(ib_handle->ctx);
 }
 
-// 1. ib_handle에 mr pool을 갖도록 해야한다.
-// 2. mr 풀에서 할당하고 해제하는 방법 고민해보기 (일단 현재까지는 리스트 -> 많이 쪼개지 않는다면 구현의 편의성으로 리스트로 하는게 나을거같은데 할당, 해제가 빈번하다면 queue로 구현하는게 나을듯)
-
-
-
-void alloc_mr_buffer(struct ib_resources_s *ib_res) {
-    // TODO: 버퍼 할당 방식 변경
-    ib_res->mr_addr = ib_res->ib_handle->mr->addr;
+struct ibv_mr *get_mr(struct ib_handle_s *ib_handle) {
+    struct ibv_mr *mr = (struct ibv_mr *) dequeue(ib_handle->mr_pool);
+    if (!mr) {
+        perror("dequeue");
+        exit(EXIT_FAILURE);
+    }
+    
+    return mr;
 }
 
 struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle) {
@@ -171,7 +181,7 @@ struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle) {
         destroy_ib_resource(ib_res);
         return NULL;
     }
-    alloc_mr_buffer(ib_res);
+    ib_res->mr = get_mr(ib_handle);
     ib_res->sock = create_socket();
 
     return ib_res;
@@ -242,8 +252,8 @@ void modify_qp_to_rts(struct ib_resources_s *ib_res) {
 
 void send_qp_sync_data(struct ib_resources_s *ib_res) {
     struct connection_data_s conn_data = {
-        .mr_addr = (uint64_t)(uintptr_t)ib_res->mr_addr,
-        .rkey = ib_res->ib_handle->mr->rkey,
+        .mr_addr = (uint64_t)(uintptr_t)ib_res->mr->addr,
+        .rkey = ib_res->mr->rkey,
         .qp_num = ib_res->qp->qp_num,
         .lid = ib_res->ib_handle->port_attr->lid,
     };
@@ -278,17 +288,16 @@ struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle) {
     return ib_res;
 }
 
-void post_receive(struct ib_resources_s *ib_res)
-{
+void post_receive(struct ib_resources_s *ib_res) {
     struct ibv_sge sge;
     struct ibv_recv_wr recv_wr;
     struct ibv_recv_wr *bad_wr;
 
     memset(&sge, 0, sizeof(sge));
     sge = (struct ibv_sge){
-        .addr = (uintptr_t)ib_res->mr_addr,
-        .length = QP_BUF_SIZE,
-        .lkey = ib_res->ib_handle->mr->lkey,
+        .addr = (uintptr_t)ib_res->mr->addr,
+        .length = MR_BUF_SIZE,
+        .lkey = ib_res->mr->lkey,
     };
 
     memset(&recv_wr, 0, sizeof(recv_wr));
@@ -315,9 +324,9 @@ void post_send(struct ib_resources_s *ib_res, struct packet_s *packet) {
 
     memset(&sge, 0, sizeof(sge));
     sge = (struct ibv_sge){
-        .addr = (uintptr_t)ib_res->mr_addr,
+        .addr = (uintptr_t)ib_res->mr->addr,
         .length = header_size + packet->header.body_size,
-        .lkey = ib_res->ib_handle->mr->lkey,
+        .lkey = ib_res->mr->lkey,
     };
 
     memset(&send_wr, 0, sizeof(send_wr));
@@ -330,8 +339,8 @@ void post_send(struct ib_resources_s *ib_res, struct packet_s *packet) {
         .send_flags = IBV_SEND_SIGNALED,
     };
     
-    memcpy(ib_res->mr_addr, &packet->header, header_size);
-    memcpy(ib_res->mr_addr + header_size, packet->body.data, packet->header.body_size);
+    memcpy(ib_res->mr->addr, &packet->header, header_size);
+    memcpy(ib_res->mr->addr + header_size, packet->body.data, packet->header.body_size);
 
     if (ibv_post_send(ib_res->qp, &send_wr, &bad_wr)) {
         perror("ibv_post_send");
@@ -349,6 +358,27 @@ void destroy_qp(struct ibv_qp *qp)
     }
 }
 
+void free_mr(struct ib_resources_s *ib_res) {
+    if (!ib_res) {
+        return;
+    }
+    if (ib_res->mr) {
+        memset(ib_res->mr->addr, 0, MR_BUF_SIZE);
+        enqueue(ib_res->ib_handle->mr_pool, ib_res->mr);
+    }
+}
+
+void destroy_ib_resource(struct ib_resources_s *ib_res) {
+    if (!ib_res) {
+        return;
+    }
+    free_mr(ib_res);
+    destroy_qp(ib_res->qp);
+    free(ib_res->remote_props);
+    close_socket(ib_res->sock);
+    free(ib_res);
+}
+
 void destroy_mr(struct ibv_mr *mr)
 {
     if (mr) {
@@ -359,11 +389,31 @@ void destroy_mr(struct ibv_mr *mr)
     }
 }
 
-void destroy_cq(struct ibv_cq *cq)
-{
+void destroy_mr_pool(struct queue_s *mr_pool) {
+    if (!mr_pool) {
+        return;
+    }
+
+    while (mr_pool->front != NULL) {
+        struct ibv_mr *mr = (struct ibv_mr *)dequeue(mr_pool);
+        destroy_mr(mr);
+    }
+    free(mr_pool);
+}
+
+void destroy_cq(struct ibv_cq *cq) {
     if (cq) {
         if (ibv_destroy_cq(cq)) {
             perror("ibv_destroy_cq");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+void destroy_cq_channel(struct ibv_comp_channel *cq_channel) {
+    if (cq_channel) {
+        if (ibv_destroy_comp_channel(cq_channel)) {
+            perror("ibv_destroy_comp_channel");
             exit(EXIT_FAILURE);
         }
     }
@@ -409,24 +459,15 @@ void destroy_ibv_port_attr(struct ibv_port_attr *port_attr) {
     }
 }
 
-void destroy_ib_resource(struct ib_resources_s *ib_res) {
-    if (!ib_res) {
+void destroy_ib_handle(struct ib_handle_s *ib_handle) {
+    if (!ib_handle) {
         return;
     }
-    destroy_qp(ib_res->qp);
-    free(ib_res->remote_props);
-    close_socket(ib_res->sock);
-    free(ib_res);
-}
-
-void destroy_ib_handle(struct ib_handle_s *ib_handle) {
-    if (!ib_handle)
-        return;
-    destroy_mr(ib_handle->mr);
+    destroy_mr_pool(ib_handle->mr_pool);
     destroy_cq(ib_handle->cq);
+    destroy_cq_channel(ib_handle->cq_channel);
+    destroy_ibv_port_attr(ib_handle->port_attr);
     destroy_pd(ib_handle->pd);
     destroy_ctx(ib_handle->ctx);
-    destroy_ibv_port_attr(ib_handle->port_attr);
     destroy_device_list(ib_handle->device_list);
-    memset(ib_handle, 0, sizeof(struct ib_handle_s));
 }

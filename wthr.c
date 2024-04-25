@@ -29,8 +29,7 @@ struct job_s* dequeue_job(struct queue_s *queue) {
     return job;
 }
 
-void write_flie(struct packet_s *packet, char *response)
-{
+void write_flie(struct packet_s *packet, char *response) {
     char *filename = packet->header.filename;
     int offset = packet->header.offset;
     char *data = packet->body.data;
@@ -61,8 +60,7 @@ void write_flie(struct packet_s *packet, char *response)
     strcpy(response, "Data written successfully");
 }
 
-void read_file(struct packet_s *packet, char *response)
-{
+void read_file(struct packet_s *packet, char *response) {
     char *filename = packet->header.filename;
     int offset = packet->header.offset;
     int length = packet->header.length;
@@ -122,8 +120,8 @@ void read_list(char *response)
 }
 
 struct pipe_response_s *create_response(struct job_s *job) {
-    char *buf = (char *)malloc(QP_BUF_SIZE);
-    memset(buf, 0, QP_BUF_SIZE);
+    char *buf = (char *)malloc(MR_BUF_SIZE);
+    memset(buf, 0, MR_BUF_SIZE);
     
     switch (job->packet->header.option) {
     case WRITE:
