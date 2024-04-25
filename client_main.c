@@ -5,7 +5,6 @@ void poll_completion(struct ib_handle_s *ib_handle);
 
 int main()
 {
-    // 클라이언트 용 ib_handle 생성 과정을 따로 구현해야함
     struct ib_handle_s ib_handle;
     create_ib_handle(&ib_handle);
     struct ib_resources_s *ib_res = connect_ib_server(&ib_handle);

@@ -1,84 +1,9 @@
 #include <sys/epoll.h>
-#include <sys/select.h>
 #include <unistd.h>
-#include <netinet/in.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "wthr.h"
-#include "hash.h"
-#include "ib.h"
-
-enum fd_type {
-    SERVER_SOCKET,
-    CLIENT_SOCKET,
-    PIPE,
-    CQ,
-};
-
-struct fd_info_s {
-    int fd;
-    enum fd_type type;
-    void *ptr;
-};
-
-struct server_resources_s {
-    int epoll_fd;
-    socket_t sock;
-    struct ib_handle_s ib_handle;
-    int pipefd[2];
-    struct queue_s *queue;
-    struct hash_map_s *qp_map;
-};
-
-int create_epoll(void);
-void create_pipe(int pipefd[2]);
-struct server_resources_s *create_server_resources(void);
-void register_event(int epoll_fd, int registered_fd, enum fd_type type, void *fd_info);
-int poll_event(int epoll_fd, struct epoll_event *events);
-void accept_ib_client(struct server_resources_s *res);
-void poll_completion(struct server_resources_s *res);
-struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_num);
-void send_job(struct queue_s *queue, struct ib_resources_s *ib_res);
-void send_response(struct fd_info_s *fd_info);
-void disconnect_client(struct fd_info_s *fd_info);
-void destroy_res(struct server_resources_s *res);
-
-int main(int argc, char const *argv[])
-{
-    struct server_resources_s *res = create_server_resources();
-    
-    int ready_fd;
-    struct epoll_event events[FD_SETSIZE];
-    while (1) {
-        ready_fd = poll_event(res->epoll_fd, events);
-        for (int i = 0; i < ready_fd; i++) {
-            struct fd_info_s *fd_info = (struct fd_info_s *)events[i].data.ptr;
-
-            switch (fd_info->type) {
-                case SERVER_SOCKET:
-                    accept_ib_client(res);
-                    break;
-
-                case CQ:
-                    poll_completion(res);
-                    break;
-                
-                case PIPE:
-                    send_response(fd_info);
-                    break;
-                
-                case CLIENT_SOCKET:
-                    disconnect_client(fd_info);
-                default:
-                    break;
-            }
-        }
-    }
-    destroy_res(res);
-    printf("[TCP 서버] 서버 종료\n");
-
-    return 0;
-}
+#include <sys/socket.h>
+#include "ib_server.h"
 
 int create_epoll(void) {
     int epoll_fd = epoll_create(1);
@@ -92,6 +17,21 @@ int create_epoll(void) {
 void create_pipe(int pipefd[2]) {
     if (pipe(pipefd) == -1) {
         perror("pipe");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void register_event(int epoll_fd, int registered_fd, enum fd_type type, void *ptr) {
+    struct fd_info_s *fd_info = (struct fd_info_s *)malloc(sizeof(struct fd_info_s));
+    fd_info->fd = registered_fd;
+    fd_info->type = type;
+    fd_info->ptr = ptr;
+
+    struct epoll_event ev;
+    ev.events = EPOLLIN;
+    ev.data.ptr = fd_info;
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, registered_fd, &ev) < 0) { 
+        perror("epoll_ctl()");
         exit(EXIT_FAILURE);
     }
 }
@@ -110,21 +50,6 @@ struct server_resources_s *create_server_resources(void) {
     register_event(res->epoll_fd, res->pipefd[0], PIPE, NULL);
     register_event(res->epoll_fd, res->ib_handle.cq_channel->fd, CQ, NULL);
     return res;
-}
-
-void register_event(int epoll_fd, int registered_fd, enum fd_type type, void *ptr) {
-    struct fd_info_s *fd_info = (struct fd_info_s *)malloc(sizeof(struct fd_info_s));
-    fd_info->fd = registered_fd;
-    fd_info->type = type;
-    fd_info->ptr = ptr;
-
-    struct epoll_event ev;
-    ev.events = EPOLLIN;
-    ev.data.ptr = fd_info;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, registered_fd, &ev) < 0) { 
-        perror("epoll_ctl()");
-        exit(EXIT_FAILURE);
-    }
 }
 
 int poll_event(int epoll_fd, struct epoll_event *events) {
@@ -170,6 +95,24 @@ void disconnect_client(struct fd_info_s *fd_info) {
         destroy_ib_resource(fd_info->ptr);
         free(fd_info);
     }
+}
+
+struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_num) {
+    struct ib_resources_s * ib_res = (struct ib_resources_s *) get(qp_map, &qp_num);
+    if (ib_res == NULL) {
+        fprintf(stderr, "Failed to get ib_res\n");
+        exit(EXIT_FAILURE);
+    }
+    return ib_res;
+}
+
+void send_job(struct queue_s *queue, struct ib_resources_s *ib_res) {
+    struct job_s *job = (struct job_s *)malloc(sizeof(struct job_s));
+    struct packet_s *packet = create_response_packet(ib_res->mr->addr);
+    
+    job->ib_res = ib_res;
+    job->packet = packet;
+    enqueue_job(queue, job);
 }
 
 void poll_completion(struct server_resources_s *res) {
@@ -219,24 +162,6 @@ void poll_completion(struct server_resources_s *res) {
     notify_cq(res->ib_handle.cq);
 }
 
-struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_num) {
-    struct ib_resources_s * ib_res = (struct ib_resources_s *) get(qp_map, &qp_num);
-    if (ib_res == NULL) {
-        fprintf(stderr, "Failed to get ib_res\n");
-        exit(EXIT_FAILURE);
-    }
-    return ib_res;
-}
-
-void send_job(struct queue_s *queue, struct ib_resources_s *ib_res) {
-    struct job_s *job = (struct job_s *)malloc(sizeof(struct job_s));
-    struct packet_s *packet = create_response_packet(ib_res->mr->addr);
-    
-    job->ib_res = ib_res;
-    job->packet = packet;
-    enqueue_job(queue, job);
-}
-
 void destroy_res(struct server_resources_s *res) {
     destroy_ib_handle(&res->ib_handle);
     close(res->sock);
@@ -244,5 +169,4 @@ void destroy_res(struct server_resources_s *res) {
     close(res->pipefd[1]);
     free_queue(res->queue);
     free_hash_map(res->qp_map);
-    free(res);
 }
