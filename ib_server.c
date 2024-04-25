@@ -44,11 +44,11 @@ struct server_resources_s *create_server_resources(void) {
     create_pipe(res->pipefd);
     res->queue = create_queue();
     init_wthr_pool(res->queue, res->pipefd[1]);
-    create_ib_handle(&res->ib_handle);
+    res->ib_handle = create_ib_handle();
 
     register_event(res->epoll_fd, res->sock, SERVER_SOCKET, NULL);
     register_event(res->epoll_fd, res->pipefd[0], PIPE, NULL);
-    register_event(res->epoll_fd, res->ib_handle.cq_channel->fd, CQ, NULL);
+    register_event(res->epoll_fd, res->ib_handle->cq_channel->fd, CQ, NULL);
     return res;
 }
 
@@ -62,7 +62,7 @@ int poll_event(int epoll_fd, struct epoll_event *events) {
 }
 
 void accept_ib_client(struct server_resources_s *res) {
-    struct ib_resources_s *ib_res = create_init_ib_resources(&res->ib_handle);
+    struct ib_resources_s *ib_res = create_init_ib_resources(res->ib_handle);
     
     ib_res->sock = accept_socket(res->sock);
     if (recv_qp_sync_data(ib_res) < 0) {
@@ -120,7 +120,7 @@ void poll_completion(struct server_resources_s *res) {
     void *event_cq_ctx;
     struct ibv_wc wc;
     
-    int rc = ibv_get_cq_event(res->ib_handle.cq_channel, &event_cq, &event_cq_ctx);
+    int rc = ibv_get_cq_event(res->ib_handle->cq_channel, &event_cq, &event_cq_ctx);
     if (rc) {
         perror("ibv_get_cq_event");
         exit(EXIT_FAILURE);
@@ -159,11 +159,11 @@ void poll_completion(struct server_resources_s *res) {
     } while (rc == 0);
 
     ibv_ack_cq_events(event_cq, 1);
-    notify_cq(res->ib_handle.cq);
+    notify_cq(res->ib_handle->cq);
 }
 
 void destroy_res(struct server_resources_s *res) {
-    destroy_ib_handle(&res->ib_handle);
+    destroy_ib_handle(res->ib_handle);
     close(res->sock);
     close(res->pipefd[0]);
     close(res->pipefd[1]);

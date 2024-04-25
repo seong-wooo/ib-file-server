@@ -36,7 +36,7 @@ struct ib_resources_s {
     socket_t sock;
 };
 
-void create_ib_handle(struct ib_handle_s *ib_handle);
+struct ib_handle_s *create_ib_handle(void);
 struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle);
 void modify_qp_to_init(struct ib_resources_s *ib_res);
 void modify_qp_to_rtr(struct ib_resources_s *ib_res);

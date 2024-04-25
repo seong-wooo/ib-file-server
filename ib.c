@@ -144,10 +144,8 @@ struct ibv_qp *create_ibv_qp(struct ib_handle_s *ib_handle) {
     return qp;
 }
 
-void create_ib_handle(struct ib_handle_s *ib_handle) {
-    if (!ib_handle) {
-        return;
-    }
+struct ib_handle_s *create_ib_handle(void) {
+    struct ib_handle_s *ib_handle = (struct ib_handle_s *)(malloc(sizeof(struct ib_handle_s)));
     memset(ib_handle, 0, sizeof(ib_handle));
     ib_handle->device_list = create_device_list();
     ib_handle->ctx = create_ibv_context(ib_handle->device_list);
@@ -156,6 +154,8 @@ void create_ib_handle(struct ib_handle_s *ib_handle) {
     ib_handle->mr_pool = create_ibv_mr_pool(ib_handle->pd);
     ib_handle->cq = create_ibv_cq(ib_handle->ctx, ib_handle->cq_channel);
     ib_handle->port_attr = create_port_attr(ib_handle->ctx);
+
+    return ib_handle;
 }
 
 struct ibv_mr *get_mr(struct ib_handle_s *ib_handle) {

@@ -24,7 +24,7 @@ struct fd_info_s {
 struct server_resources_s {
     int epoll_fd;
     socket_t sock;
-    struct ib_handle_s ib_handle;
+    struct ib_handle_s *ib_handle;
     int pipefd[2];
     struct queue_s *queue;
     struct hash_map_s *qp_map;
