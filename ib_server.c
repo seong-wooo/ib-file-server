@@ -26,7 +26,7 @@ struct server_resources_s {
     socket_t sock;
     struct ib_handle_s ib_handle;
     int pipefd[2];
-    struct queue_s queue;
+    struct queue_s *queue;
     struct hash_map_s *qp_map;
 };
 
@@ -38,7 +38,7 @@ int poll_event(int epoll_fd, struct epoll_event *events);
 void accept_ib_client(struct server_resources_s *res);
 void poll_completion(struct server_resources_s *res);
 struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_num);
-void enqueue_job(struct queue_s *queue, struct ib_resources_s *ib_res);
+void send_job(struct queue_s *queue, struct ib_resources_s *ib_res);
 void send_response(struct fd_info_s *fd_info);
 void disconnect_client(struct fd_info_s *fd_info);
 void destroy_res(struct server_resources_s *res);
@@ -102,7 +102,8 @@ struct server_resources_s *create_server_resources(void) {
     res->sock = create_server_socket();
     res->qp_map = create_hash_map(1000);
     create_pipe(res->pipefd);
-    init_wthr_pool(&res->queue, res->pipefd[1]);
+    res->queue = create_queue();
+    init_wthr_pool(res->queue, res->pipefd[1]);
     create_ib_handle(&res->ib_handle);
 
     register_event(res->epoll_fd, res->sock, SERVER_SOCKET, NULL);
@@ -201,7 +202,7 @@ void poll_completion(struct server_resources_s *res) {
         struct ib_resources_s *ib_res = get_ib_resources(res->qp_map, wc.qp_num);
         switch (wc.opcode) {
             case IBV_WC_RECV:
-                enqueue_job(&res->queue, ib_res);
+                send_job(res->queue, ib_res);
                 break;
             
             case IBV_WC_SEND:
@@ -227,13 +228,13 @@ struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_n
     return ib_res;
 }
 
-void enqueue_job(struct queue_s *queue, struct ib_resources_s *ib_res) {
+void send_job(struct queue_s *queue, struct ib_resources_s *ib_res) {
     struct job_s *job = (struct job_s *)malloc(sizeof(struct job_s));
     struct packet_s *packet = create_response_packet(ib_res->mr_addr);
     
     job->ib_res = ib_res;
     job->packet = packet;
-    enqueue(queue, job);
+    enqueue_job(queue, job);
 }
 
 void destroy_res(struct server_resources_s *res) {
@@ -241,7 +242,7 @@ void destroy_res(struct server_resources_s *res) {
     close(res->sock);
     close(res->pipefd[0]);
     close(res->pipefd[1]);
-    freeQueue(&res->queue);
+    free_queue(res->queue);
     free_hash_map(res->qp_map);
     free(res);
 }

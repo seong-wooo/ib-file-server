@@ -10,60 +10,23 @@ int cthred_pipefd;
 pthread_cond_t q_empty_cond;
 pthread_mutex_t mutex;
 
-void enqueue(struct queue_s *queue, struct job_s* job) {
-    struct node_s *newNode = (struct node_s *)malloc(sizeof(struct node_s));
-    if (newNode == NULL) {
-        return;
-    }
-    newNode->job = job;
-    newNode->next = NULL;
-
+void enqueue_job(struct queue_s *queue, struct job_s* job) {
     pthread_mutex_lock(&mutex);
-
-    if (queue->rear == NULL) {
-        queue->front = newNode;
-        queue->rear = newNode;
-    }
-    else {
-        queue->rear->next = newNode;
-        queue->rear = newNode;
-    }
-    
+    enqueue(queue, job);
     pthread_cond_signal(&q_empty_cond);
     pthread_mutex_unlock(&mutex);
 }
 
-struct job_s* dequeue(struct queue_s *queue) {
+struct job_s* dequeue_job(struct queue_s *queue) {
     struct job_s* job = NULL;
     pthread_mutex_lock(&mutex);
     while (queue->front == NULL) {
         pthread_cond_wait(&q_empty_cond, &mutex);
     }
-    
-    struct node_s *temp = queue->front;
-    queue->front = queue->front->next;
-
-    if (queue->front == NULL) {
-        queue->rear = NULL;
-    }
-
-    job = temp->job;
-    free(temp);
-    
-
+    job = (struct job_s *)dequeue(queue);
     pthread_mutex_unlock(&mutex);
 
     return job;
-}
-
-void freeQueue(struct queue_s *queue) {
-    struct node_s *current = queue->front;
-    while (current != NULL) {
-        struct node_s *temp = current;
-        current = current->next;
-        free(temp);
-    }
-    pthread_mutex_destroy(&mutex);
 }
 
 void write_flie(struct packet_s *packet, char *response)
@@ -158,7 +121,7 @@ void read_list(char *response)
     closedir(dir);
 }
 
-void create_response(struct job_s *job) {
+struct pipe_response_s *create_response(struct job_s *job) {
     char *buf = (char *)malloc(QP_BUF_SIZE);
     memset(buf, 0, QP_BUF_SIZE);
     
@@ -185,30 +148,25 @@ void create_response(struct job_s *job) {
     response->ib_res = job->ib_res;
     response->packet.header.body_size = strlen(buf) + 1;
     response->packet.body.data = buf;
-    
-    write(cthred_pipefd, &response, sizeof(&response));
+
+    return response;
 }
 
 void *work(void *arg) { 
     struct queue_s *queue = (struct queue_s *)arg;
     while (1) {
-        struct job_s *job = dequeue(queue);
+        struct job_s *job = dequeue_job(queue);
         if (job == NULL) {
             continue;
         }
-        create_response(job);
+        struct pipe_response_s *response = create_response(job);
+        write(cthred_pipefd, &response, sizeof(&response));
     }
 }
 
-void init_queue(struct queue_s *queue) {
-    queue->front = NULL;
-    queue->rear = NULL;
+void init_wthr_pool(struct queue_s *queue, int pipefd) {
     pthread_cond_init(&q_empty_cond, NULL);
     pthread_mutex_init(&mutex, NULL);
-}
-
-void init_wthr_pool(struct queue_s *queue, int pipefd) {
-    init_queue(queue);
     
     cthred_pipefd = pipefd;
     pthread_t threads[MAX_THREADS];
