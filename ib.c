@@ -76,8 +76,8 @@ struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *c
     return cq;
 }
 
-char *create_buffer(size_t buffer_size) {
-    char *mr_addr = (char *)malloc(buffer_size);
+void *create_buffer(size_t buffer_size) {
+    void *mr_addr = (void *)malloc(buffer_size);
     if (!mr_addr) {
         perror("malloc");
         exit(EXIT_FAILURE);
@@ -85,7 +85,7 @@ char *create_buffer(size_t buffer_size) {
     return mr_addr;
 }
 
-struct ibv_mr *create_ibv_mr(struct ibv_pd *pd, char* mr_addr) {
+struct ibv_mr *create_ibv_mr(struct ibv_pd *pd, void* mr_addr) {
     if (!pd || !mr_addr) 
         return NULL;
     struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MR_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
@@ -147,6 +147,11 @@ void create_ib_handle(struct ib_handle_s *ib_handle) {
     ib_handle->mr = create_ibv_mr(ib_handle->pd, mr_addr);
     ib_handle->port_attr = create_port_attr(ib_handle->ctx);
 }
+
+// 1. ib_handle에 mr pool을 갖도록 해야한다.
+// 2. mr 풀에서 할당하고 해제하는 방법 고민해보기 (일단 현재까지는 리스트 -> 많이 쪼개지 않는다면 구현의 편의성으로 리스트로 하는게 나을거같은데 할당, 해제가 빈번하다면 queue로 구현하는게 나을듯)
+
+
 
 void alloc_mr_buffer(struct ib_resources_s *ib_res) {
     // TODO: 버퍼 할당 방식 변경

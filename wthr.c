@@ -7,6 +7,8 @@
 #include "log.h"
 
 int cthred_pipefd;
+pthread_cond_t q_empty_cond;
+pthread_mutex_t mutex;
 
 void enqueue(struct queue_s *queue, struct job_s* job) {
     struct node_s *newNode = (struct node_s *)malloc(sizeof(struct node_s));
@@ -16,7 +18,7 @@ void enqueue(struct queue_s *queue, struct job_s* job) {
     newNode->job = job;
     newNode->next = NULL;
 
-    pthread_mutex_lock(&queue->mutex);
+    pthread_mutex_lock(&mutex);
 
     if (queue->rear == NULL) {
         queue->front = newNode;
@@ -27,15 +29,15 @@ void enqueue(struct queue_s *queue, struct job_s* job) {
         queue->rear = newNode;
     }
     
-    pthread_cond_signal(&queue->empty_cond);
-    pthread_mutex_unlock(&queue->mutex);
+    pthread_cond_signal(&q_empty_cond);
+    pthread_mutex_unlock(&mutex);
 }
 
 struct job_s* dequeue(struct queue_s *queue) {
     struct job_s* job = NULL;
-    pthread_mutex_lock(&queue->mutex);
+    pthread_mutex_lock(&mutex);
     while (queue->front == NULL) {
-        pthread_cond_wait(&queue->empty_cond, &queue->mutex);
+        pthread_cond_wait(&q_empty_cond, &mutex);
     }
     
     struct node_s *temp = queue->front;
@@ -49,7 +51,7 @@ struct job_s* dequeue(struct queue_s *queue) {
     free(temp);
     
 
-    pthread_mutex_unlock(&queue->mutex);
+    pthread_mutex_unlock(&mutex);
 
     return job;
 }
@@ -61,7 +63,7 @@ void freeQueue(struct queue_s *queue) {
         current = current->next;
         free(temp);
     }
-    pthread_mutex_destroy(&(queue->mutex));
+    pthread_mutex_destroy(&mutex);
 }
 
 void write_flie(struct packet_s *packet, char *response)
@@ -201,8 +203,8 @@ void *work(void *arg) {
 void init_queue(struct queue_s *queue) {
     queue->front = NULL;
     queue->rear = NULL;
-    pthread_cond_init(&queue->empty_cond, NULL);
-    pthread_mutex_init(&queue->mutex, NULL);
+    pthread_cond_init(&q_empty_cond, NULL);
+    pthread_mutex_init(&mutex, NULL);
 }
 
 void init_wthr_pool(struct queue_s *queue, int pipefd) {

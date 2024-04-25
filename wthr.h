@@ -1,6 +1,5 @@
 #ifndef WTHR_H
 #define WTHR_H
-#include <pthread.h>
 #include "message.h"
 
 #define MAX_THREADS 8
@@ -19,8 +18,6 @@ struct node_s {
 struct queue_s {
     struct node_s *front;
     struct node_s *rear;
-    pthread_cond_t empty_cond;
-    pthread_mutex_t mutex;
 };
 
 struct pipe_response_s {
