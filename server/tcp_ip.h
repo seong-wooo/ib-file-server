@@ -12,5 +12,4 @@ socket_t create_socket(void);
 void close_socket(socket_t sock);
 socket_t accept_socket(socket_t sock);
 socket_t create_server_socket(void);
-void connect_tcp_to_server(socket_t sock, char *ip, int port);
 #endif

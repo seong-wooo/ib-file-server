@@ -27,7 +27,5 @@ struct packet_s {
     struct packet_body_s body;
 };
 
-char get_option(void);
 struct packet_s *create_request_packet(void *data);
-struct packet_s *create_response_packet(char option);
 #endif

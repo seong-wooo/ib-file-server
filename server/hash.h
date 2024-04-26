@@ -12,8 +12,8 @@ struct hash_map_s {
 };
 
 struct hash_map_s* create_hash_map(int size);
-void put(struct hash_map_s* hash_map, void* key, void* value);
-void* get(struct hash_map_s* hash_map, void* key);
-void remove_key(struct hash_map_s* hash_map, void* key);
+void put(struct hash_map_s* hash_map, uint32_t* key, void* value);
+void* get(struct hash_map_s* hash_map, uint32_t* key);
+void remove_key(struct hash_map_s* hash_map, uint32_t* key);
 void free_hash_map(struct hash_map_s* hash_map);
 #endif

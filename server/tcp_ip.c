@@ -84,26 +84,10 @@ void close_socket(socket_t sock) {
     }
 }
 
-
 socket_t create_server_socket(void) {
     socket_t sock = create_socket();
     bind_socket(sock);
     listen_socket(sock, SOMAXCONN);
 
     return sock;
-}
-
-void connect_tcp_to_server(socket_t sock, char *ip, int port) {
-    int rc;
-    struct sockaddr_in serveraddr;
-
-    memset(&serveraddr, 0, sizeof(serveraddr));
-    serveraddr.sin_family = AF_INET;
-    inet_pton(AF_INET, ip, &serveraddr.sin_addr);
-    serveraddr.sin_port = htons(port);
-    rc = connect(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
-    if (rc == SOCKET_ERROR) {
-        perror("listen()");
-        exit(EXIT_FAILURE);
-    }
 }

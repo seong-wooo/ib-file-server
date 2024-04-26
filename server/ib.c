@@ -295,19 +295,6 @@ int recv_qp_sync_data(struct ib_resources_s *ib_res) {
     return rc;
 }
 
-struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle) {
-    struct ib_resources_s *ib_res = create_init_ib_resources(ib_handle);
-
-    connect_tcp_to_server(ib_res->sock, SERVER_IP, SERVER_PORT);
-    send_qp_sync_data(ib_res);
-    recv_qp_sync_data(ib_res);
-    modify_qp_to_init(ib_res);
-    modify_qp_to_rtr(ib_res);
-    modify_qp_to_rts(ib_res);
-    
-    return ib_res;
-}
-
 void post_receive(struct ibv_srq *srq, struct ibv_mr *mr) {
     struct ibv_sge sge;
     struct ibv_recv_wr recv_wr;
@@ -394,6 +381,12 @@ void destroy_ib_resource(struct ib_resources_s *ib_res) {
     free(ib_res);
 }
 
+void free_buffer(void *buffer) {
+    if (buffer) {
+        free(buffer);
+    }
+}
+
 void destroy_mr(struct ibv_mr *mr) {
     if (mr) {
         if (ibv_dereg_mr(mr)) {
@@ -410,6 +403,7 @@ void destroy_mr_pool(struct queue_s *mr_pool) {
 
     while (mr_pool->front != NULL) {
         struct ibv_mr *mr = (struct ibv_mr *)dequeue(mr_pool);
+        free_buffer(mr->addr);
         destroy_mr(mr);
     }
     free(mr_pool);
@@ -467,12 +461,6 @@ void destroy_device_list(struct ibv_device **device_list)
 {
     if (device_list) {
         ibv_free_device_list(device_list);
-    }
-}
-
-void free_buffer(void *buffer) {
-    if (buffer) {
-        free(buffer);
     }
 }
 
