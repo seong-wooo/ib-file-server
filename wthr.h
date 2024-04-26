@@ -6,12 +6,12 @@
 #define MAX_THREADS 8
 
 struct job_s {
-    struct ib_resources_s *ib_res;
+    struct ibv_mr *mr;
     struct packet_s *packet;
 };
 
 struct pipe_response_s {
-    struct ib_resources_s *ib_res;
+    struct ibv_mr *mr;
     struct packet_s packet;
 };
 

@@ -1,6 +1,6 @@
 
-#include "ib_server.h"
 #include <sys/epoll.h>
+#include "ib_server.h"
 
 int main(int argc, char const *argv[]) {
     struct server_resources_s *res = create_server_resources();
@@ -22,11 +22,12 @@ int main(int argc, char const *argv[]) {
                     break;
                 
                 case PIPE:
-                    send_response(fd_info);
+                    send_response(fd_info, res->qp_map);
                     break;
                 
                 case CLIENT_SOCKET:
-                    disconnect_client(fd_info);
+                    disconnect_client(fd_info, res->qp_map);
+                    break;
                 default:
                     break;
             }

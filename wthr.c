@@ -143,7 +143,8 @@ struct pipe_response_s *create_response(struct job_s *job) {
     }
     
     struct pipe_response_s *response = (struct pipe_response_s *)malloc(sizeof(struct pipe_response_s));
-    response->ib_res = job->ib_res;
+    response->mr = job->mr;
+    response->packet.header.qp_num = job->packet->header.qp_num;
     response->packet.header.body_size = strlen(buf) + 1;
     response->packet.body.data = buf;
 

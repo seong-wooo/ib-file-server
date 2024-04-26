@@ -86,6 +86,31 @@ void* get(struct hash_map_s* hash_map, void* key) {
     return NULL;
 }
 
+void remove_key(struct hash_map_s* hash_map, void* key) {
+    if (hash_map == NULL || key == NULL) {
+        return;
+    }
+
+    int index = hash(hash_map, key);
+    struct hash_node_s* current = hash_map->buckets[index];
+    struct hash_node_s* prev = NULL;
+
+    while (current != NULL) {
+        if (memcmp(current->key, key, sizeof(uint32_t)) == 0 || strcmp((char*)current->key, (char*)key) == 0) {
+            if (prev == NULL) {
+                hash_map->buckets[index] = current->next;
+            } 
+            else {
+                prev->next = current->next;
+            }
+            free(current);
+            return;
+        }
+        prev = current;
+        current = current->next;
+    }
+}
+
 void free_hash_map(struct hash_map_s* hash_map) {
     if (hash_map == NULL) {
         return;

@@ -34,7 +34,7 @@ struct server_resources_s *create_server_resources(void);
 int poll_event(int epoll_fd, struct epoll_event *events);
 void accept_ib_client(struct server_resources_s *res);
 void poll_completion(struct server_resources_s *res);
-void send_response(struct fd_info_s *fd_info);
-void disconnect_client(struct fd_info_s *fd_info);
+void send_response(struct fd_info_s *fd_info, struct hash_map_s *qp_map);
+void disconnect_client(struct fd_info_s *fd_info, struct hash_map_s *qp_map);
 void destroy_res(struct server_resources_s *res);
 #endif

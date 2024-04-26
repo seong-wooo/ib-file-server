@@ -72,26 +72,28 @@ void accept_ib_client(struct server_resources_s *res) {
     modify_qp_to_rtr(ib_res);
     modify_qp_to_rts(ib_res);
     
-    post_receive(ib_res);
+    struct ibv_mr *mr = get_mr(res->ib_handle);
+    post_receive(ib_res->ib_handle->srq, mr);
     send_qp_sync_data(ib_res);
 
     register_event(res->epoll_fd, ib_res->sock, CLIENT_SOCKET, ib_res);
-    put(res->qp_map, &ib_res->qp->qp_num, ib_res);
+    put(res->qp_map, &ib_res->qp->qp_num, ib_res->qp);
 }
 
-void send_response(struct fd_info_s *fd_info) {
+void send_response(struct fd_info_s *fd_info, struct hash_map_s *qp_map) {
     struct pipe_response_s *response;
     read(fd_info->fd, &response, sizeof(&response));
-
-    post_send(response->ib_res, &response->packet);
+    struct ibv_qp* qp = (struct ibv_qp *)get(qp_map, &response->packet.header.qp_num);
+    post_send(response->mr, qp, &response->packet);
     free(response);
 }
 
-void disconnect_client(struct fd_info_s *fd_info) {
+void disconnect_client(struct fd_info_s *fd_info, struct hash_map_s *qp_map) {
     char buf[256];
     int rc = recv(fd_info->fd, buf, sizeof(buf), 0);
     if (rc == 0) {
         struct ib_resources_s *ib_res = (struct ib_resources_s *)fd_info->ptr;
+        remove_key(qp_map, &ib_res->qp->qp_num);
         destroy_ib_resource(fd_info->ptr);
         free(fd_info);
     }
@@ -106,11 +108,10 @@ struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_n
     return ib_res;
 }
 
-void send_job(struct queue_s *queue, struct ib_resources_s *ib_res) {
+void send_job(struct queue_s *queue, struct ibv_mr *mr) {
     struct job_s *job = (struct job_s *)malloc(sizeof(struct job_s));
-    struct packet_s *packet = create_response_packet(ib_res->mr->addr);
-    
-    job->ib_res = ib_res;
+    struct packet_s *packet = create_request_packet(mr->addr);
+    job->mr = mr;
     job->packet = packet;
     enqueue_job(queue, job);
 }
@@ -141,15 +142,16 @@ void poll_completion(struct server_resources_s *res) {
             fprintf(stderr, "Failed status %s (%d) for wr_id %d\n", ibv_wc_status_str(wc.status), wc.status, (int)wc.wr_id);
             exit(EXIT_FAILURE);
         }
-
-        struct ib_resources_s *ib_res = get_ib_resources(res->qp_map, wc.qp_num);
+        
+        struct ibv_mr *mr = (struct ibv_mr *)wc.wr_id;
         switch (wc.opcode) {
             case IBV_WC_RECV:
-                send_job(res->queue, ib_res);
+                send_job(res->queue, mr);
                 break;
             
             case IBV_WC_SEND:
-                post_receive(ib_res);
+                post_receive(res->ib_handle->srq, mr);
+                restore_mr(res->ib_handle->mr_pool, mr);
                 break;
 
             default:
