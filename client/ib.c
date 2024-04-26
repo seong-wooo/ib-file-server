@@ -448,6 +448,7 @@ void destroy_ibv_port_attr(struct ibv_port_attr *port_attr) {
     if (!ib_handle) {
         return;
     }
+    free_buffer(ib_handle->mr->addr);
     destroy_mr(ib_handle->mr);
     destroy_cq(ib_handle->cq);
     destroy_cq_channel(ib_handle->cq_channel);

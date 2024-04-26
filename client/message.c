@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "hash.h"
 #include "message.h"
 
 struct packet_s *create_request_packet(void *data) {
