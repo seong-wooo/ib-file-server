@@ -1,7 +1,10 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include "common.h"
+#include <string.h>
+#include <stdlib.h>
 #include "tcp_ip.h"
 
 void print_connected_client(struct sockaddr_in *client_addr) {
@@ -15,7 +18,7 @@ void print_disconnected_client(socket_t sock) {
     socklen_t addr_len = sizeof(client_addr);
 
     if (getpeername(sock, (struct sockaddr *)&client_addr, &addr_len) == -1) {
-        perror("getpeername");
+        perror("getpeername()");
         exit(EXIT_FAILURE);
     }
 
@@ -26,8 +29,10 @@ void print_disconnected_client(socket_t sock) {
 
 socket_t create_socket(void) {
     socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == INVALID_SOCKET)
-        err_quit("socket()");
+    if (sock == INVALID_SOCKET) {
+        perror("socket()");
+        exit(EXIT_FAILURE);
+    }
 
     return sock;
 }
@@ -39,7 +44,8 @@ socket_t accept_socket(socket_t sock) {
 
     client_sock = accept(sock, (struct sockaddr *)&client_addr, &addrlen);
     if (client_sock == INVALID_SOCKET) {
-        err_display("accept()");
+        perror("accept()");
+        exit(EXIT_FAILURE);
     }
     print_connected_client(&client_addr);
     return client_sock;
@@ -55,8 +61,10 @@ void bind_socket(socket_t sock) {
     serveraddr.sin_port = htons(SERVER_PORT);
 
     rc = bind(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
-    if (rc == SOCKET_ERROR)
-        err_quit("bind()");
+    if (rc == SOCKET_ERROR) {
+        perror("bind()");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void listen_socket(socket_t sock, int max_connection) {
@@ -64,7 +72,8 @@ void listen_socket(socket_t sock, int max_connection) {
 
     rc = listen(sock, max_connection);
     if (rc == SOCKET_ERROR) {
-        err_quit("listen()");
+        perror("listen()");
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -94,6 +103,7 @@ void connect_tcp_to_server(socket_t sock, char *ip, int port) {
     serveraddr.sin_port = htons(port);
     rc = connect(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
     if (rc == SOCKET_ERROR) {
-        err_quit("connect()");
+        perror("listen()");
+        exit(EXIT_FAILURE);
     }
 }
