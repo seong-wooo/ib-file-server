@@ -63,8 +63,7 @@ void listen_socket(socket_t sock, int max_connection) {
     int rc;
 
     rc = listen(sock, max_connection);
-    if (rc == SOCKET_ERROR)
-    {
+    if (rc == SOCKET_ERROR) {
         err_quit("listen()");
     }
 }
@@ -94,6 +93,7 @@ void connect_tcp_to_server(socket_t sock, char *ip, int port) {
     inet_pton(AF_INET, ip, &serveraddr.sin_addr);
     serveraddr.sin_port = htons(port);
     rc = connect(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
-    if (rc == SOCKET_ERROR)
+    if (rc == SOCKET_ERROR) {
         err_quit("connect()");
+    }
 }

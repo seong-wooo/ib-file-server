@@ -327,7 +327,7 @@ void post_receive(struct ibv_srq *srq, struct ibv_mr *mr) {
         .sg_list = &sge,
         .num_sge = 1,
     };
-    
+
     int rc = ibv_post_srq_recv(srq, &recv_wr, &bad_wr);
     if (rc) {
         perror("ibv_post_recv");
@@ -368,8 +368,7 @@ void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet) {
     }
 }
 
-void destroy_qp(struct ibv_qp *qp)
-{
+void destroy_qp(struct ibv_qp *qp) {
     if (qp) {
         if (ibv_destroy_qp(qp)) {
             perror("ibv_destroy_qp");

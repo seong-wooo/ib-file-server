@@ -3,8 +3,7 @@
 
 void poll_completion(struct ib_handle_s *ib_handle);
 
-int main()
-{
+int main() {
     struct ib_handle_s *ib_handle = create_ib_handle();
     struct ib_resources_s *ib_res = connect_ib_server(ib_handle);
     struct ibv_mr *mr = get_mr(ib_res->ib_handle);

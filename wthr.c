@@ -69,8 +69,7 @@ void read_file(struct packet_s *packet, char *response) {
     if (fp == NULL) {
         strcpy(response, "Error opening file");
     }
-    else
-    {
+    else {
         fseek(fp, 0, SEEK_END);
         long fileSize = ftell(fp);
         if (offset > fileSize) {
