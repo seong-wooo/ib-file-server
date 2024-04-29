@@ -29,4 +29,5 @@ struct packet_s {
 char get_option(void);
 struct packet_s *create_request_packet(char option);
 struct packet_s *create_response_packet(void *data);
+void free_packet(struct packet_s *packet);
 #endif

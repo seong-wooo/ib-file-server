@@ -10,3 +10,10 @@ struct packet_s *create_response_packet(void *data) {
     
     return packet;
 }
+
+void free_packet(struct packet_s *packet) {
+    if (packet->body.data != NULL) {
+        free(packet->body.data);
+    }
+    free(packet);
+}

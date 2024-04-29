@@ -352,6 +352,7 @@ void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet) {
         perror("ibv_post_send");
         exit(EXIT_FAILURE);
     }
+    free_packet(packet);
 }
 
 void destroy_qp(struct ibv_qp *qp) {

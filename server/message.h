@@ -27,4 +27,5 @@ struct packet_s {
 };
 
 struct packet_s *create_response_packet(void *data);
+void free_packet(struct packet_s *packet);
 #endif

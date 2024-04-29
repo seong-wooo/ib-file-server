@@ -11,15 +11,15 @@ int main() {
             break;
         }
         struct packet_s *request_packet = create_request_packet(option);
-        
         post_receive(ib_res->qp, ib_handle->mr);
         post_send(ib_handle->mr, ib_res->qp, request_packet);
+        free_packet(request_packet);
         poll_completion(ib_handle); 
         poll_completion(ib_handle);
 
         struct packet_s *response_packet = create_response_packet(ib_handle->mr->addr);
-        
         printf("[받은 데이터]:\n%s\n", response_packet->body.data); 
+        free_packet(request_packet);
     }
     destroy_ib_resource(ib_res);
     destroy_ib_handle(ib_handle);
