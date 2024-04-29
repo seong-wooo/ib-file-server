@@ -81,11 +81,11 @@ void accept_ib_client(struct server_resources_s *res) {
 }
 
 void send_response(struct fd_info_s *fd_info, struct hash_map_s *qp_map) {
-    struct pipe_response_s *response;
-    read(fd_info->fd, &response, sizeof(&response));
-    struct ibv_qp* qp = (struct ibv_qp *)get(qp_map, &response->packet.header.qp_num);
-    post_send(response->mr, qp, &response->packet);
-    free(response);
+    struct job_s *job;
+    read(fd_info->fd, &job, sizeof(&job));
+    struct ibv_qp* qp = (struct ibv_qp *)get(qp_map, &job->qp_num);
+    post_send(job->mr, qp, job->packet);
+    free(job);
 }
 
 void disconnect_client(struct fd_info_s *fd_info, struct hash_map_s *qp_map) {
@@ -108,9 +108,10 @@ struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_n
     return ib_res;
 }
 
-void send_job(struct queue_s *queue, struct ibv_mr *mr) {
+void send_job(struct queue_s *queue, struct ibv_mr *mr, uint32_t qp_num) {
     struct job_s *job = (struct job_s *)malloc(sizeof(struct job_s));
-    struct packet_s *packet = create_request_packet(mr->addr);
+    struct packet_s *packet = create_response_packet(mr->addr);
+    job->qp_num = qp_num;
     job->mr = mr;
     job->packet = packet;
     enqueue_job(queue, job);
@@ -146,7 +147,7 @@ void poll_completion(struct server_resources_s *res) {
         struct ibv_mr *mr = (struct ibv_mr *)wc.wr_id;
         switch (wc.opcode) {
             case IBV_WC_RECV:
-                send_job(res->queue, mr);
+                send_job(res->queue, mr, wc.qp_num);
                 break;
             
             case IBV_WC_SEND:

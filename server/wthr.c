@@ -118,7 +118,7 @@ void read_list(char *response)
     closedir(dir);
 }
 
-struct pipe_response_s *create_response(struct job_s *job) {
+struct job_s *create_response(struct job_s *job) {
     char *buf = (char *)malloc(MR_BUF_SIZE);
     memset(buf, 0, MR_BUF_SIZE);
     
@@ -141,13 +141,10 @@ struct pipe_response_s *create_response(struct job_s *job) {
         break;
     }
     
-    struct pipe_response_s *response = (struct pipe_response_s *)malloc(sizeof(struct pipe_response_s));
-    response->mr = job->mr;
-    response->packet.header.qp_num = job->packet->header.qp_num;
-    response->packet.header.body_size = strlen(buf) + 1;
-    response->packet.body.data = buf;
+    job->packet->header.body_size = strlen(buf) + 1;
+    job->packet->body.data = buf;
 
-    return response;
+    return job;
 }
 
 void *work(void *arg) { 
@@ -157,7 +154,7 @@ void *work(void *arg) {
         if (job == NULL) {
             continue;
         }
-        struct pipe_response_s *response = create_response(job);
+        struct job_s *response = create_response(job);
         write(cthred_pipefd, &response, sizeof(&response));
     }
 }

@@ -10,7 +10,6 @@
 #define LIST 'l'
 
 struct packet_header_s {
-    uint32_t qp_num;
     char option;
     char filename[20];
     int offset;
@@ -28,6 +27,5 @@ struct packet_s {
 };
 
 char get_option(void);
-struct packet_s *create_request_packet(void *data);
-struct packet_s *create_response_packet(char option);
+struct packet_s *create_request_packet(char option);
 #endif

@@ -10,15 +10,14 @@ int main() {
         if (option == QUIT) {
             break;
         }
-        struct packet_s *request_packet = create_response_packet(option);
-        request_packet->header.qp_num = ib_res->remote_props->qp_num;
+        struct packet_s *request_packet = create_request_packet(option);
         
         post_receive(ib_res->qp, ib_handle->mr);
         post_send(ib_handle->mr, ib_res->qp, request_packet);
         poll_completion(ib_handle); 
         poll_completion(ib_handle);
 
-        struct packet_s *response_packet = create_request_packet(ib_handle->mr->addr);
+        struct packet_s *response_packet = create_response_packet(ib_handle->mr->addr);
         
         printf("[받은 데이터]:\n%s\n", response_packet->body.data); 
     }
