@@ -34,6 +34,10 @@ void enqueue(struct queue_s *queue, void *data) {
     }
 }
 
+int is_empty(struct queue_s *queue) {
+    return queue->front == NULL;
+}
+
 void *dequeue(struct queue_s *queue) {
     if (queue->front == NULL) {
         return NULL;

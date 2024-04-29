@@ -20,7 +20,7 @@ void enqueue_job(struct queue_s *queue, struct job_s* job) {
 struct job_s* dequeue_job(struct queue_s *queue) {
     struct job_s* job = NULL;
     pthread_mutex_lock(&mutex);
-    while (queue->front == NULL) {
+    while (is_empty(queue)) {
         pthread_cond_wait(&q_empty_cond, &mutex);
     }
     job = (struct job_s *)dequeue(queue);

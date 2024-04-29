@@ -14,6 +14,7 @@ struct queue_s {
 struct queue_s *create_queue(void);
 void enqueue(struct queue_s *queue, void *data);
 void *dequeue(struct queue_s *queue);
+int is_empty(struct queue_s *queue);
 void free_queue(struct queue_s *queue);
 
 #endif
