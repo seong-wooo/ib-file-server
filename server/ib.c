@@ -98,12 +98,11 @@ struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *c
 }
 
 void *create_buffer(size_t buffer_size) {
-    void *mr_addr = (void *)malloc(buffer_size);
+    void *mr_addr = (void *)calloc(1, buffer_size);
     if (!mr_addr) {
         perror("malloc");
         exit(EXIT_FAILURE);
     }
-    memset(mr_addr, 0, buffer_size);
     
     return mr_addr;
 }

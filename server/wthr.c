@@ -119,8 +119,7 @@ void read_list(char *response)
 }
 
 struct job_s *create_response(struct job_s *job) {
-    char *buf = (char *)malloc(MR_BUF_SIZE);
-    memset(buf, 0, MR_BUF_SIZE);
+    char *buf = (char *)calloc(1, MR_BUF_SIZE);
     
     switch (job->packet->header.option) {
     case WRITE:
@@ -150,12 +149,12 @@ struct job_s *create_response(struct job_s *job) {
 void *work(void *arg) { 
     struct queue_s *queue = (struct queue_s *)arg;
     while (1) {
-        struct job_s *job = dequeue_job(queue);
-        if (job == NULL) {
+        struct job_s *request_job = dequeue_job(queue);
+        if (request_job == NULL) {
             continue;
         }
-        struct job_s *response = create_response(job);
-        write(cthred_pipefd, &response, sizeof(&response));
+        struct job_s *response_job = create_response(request_job);
+        write(cthred_pipefd, &response_job, sizeof(&response_job));
     }
 }
 

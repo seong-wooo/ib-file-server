@@ -3,15 +3,6 @@
 #include <stdio.h>
 #include "message.h"
 
-struct packet_s *create_response_packet(void *data) {
-    struct packet_s *packet = malloc(sizeof(struct packet_s));
-    memcpy(&packet->header, data, sizeof(struct packet_header_s));
-    packet->body.data = (char *)malloc(packet->header.body_size);
-    memcpy(packet->body.data, data + sizeof(struct packet_header_s), packet->header.body_size);
-    
-    return packet;
-}
-
 char get_option(void) {
     char option;
     do {
@@ -83,8 +74,7 @@ void get_delete(struct packet_s *packet) {
 }
 
 struct packet_s *create_request_packet(char option) {
-    struct packet_s *packet = malloc(sizeof(struct packet_s));
-    memset(&packet->header, 0, sizeof(packet->header));
+    struct packet_s *packet = calloc(1, sizeof(struct packet_s));
     switch (option) {
         case LIST:
             get_list_packet(packet);
@@ -102,5 +92,14 @@ struct packet_s *create_request_packet(char option) {
             break;
     }
 
+    return packet;
+}
+
+struct packet_s *create_response_packet(void *data) {
+    struct packet_s *packet = malloc(sizeof(struct packet_s));
+    memcpy(&packet->header, data, sizeof(struct packet_header_s));
+    packet->body.data = (char *)malloc(packet->header.body_size);
+    memcpy(packet->body.data, data + sizeof(struct packet_header_s), packet->header.body_size);
+    
     return packet;
 }

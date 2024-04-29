@@ -111,8 +111,7 @@ struct ibv_port_attr *create_port_attr(struct ibv_context *ctx) {
 }
 
 struct ib_handle_s *create_ib_handle(void) {
-    struct ib_handle_s *ib_handle = (struct ib_handle_s *)(malloc(sizeof(struct ib_handle_s)));
-    memset(ib_handle, 0, sizeof(ib_handle));
+    struct ib_handle_s *ib_handle = (struct ib_handle_s *)(calloc(1, sizeof(struct ib_handle_s)));
     ib_handle->device_list = create_device_list();
     ib_handle->ctx = create_ibv_context(ib_handle->device_list);
     ib_handle->pd = create_ibv_pd(ib_handle->ctx);
@@ -150,12 +149,12 @@ struct ibv_qp *create_ibv_qp(struct ib_handle_s *ib_handle) {
 struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle) {
     if (!ib_handle) 
         return NULL;
-    struct ib_resources_s *ib_res = (struct ib_resources_s *)(malloc(sizeof(struct ib_resources_s)));
+    struct ib_resources_s *ib_res = (struct ib_resources_s *)(calloc(1, sizeof(struct ib_resources_s)));
     if (!ib_res) 
         return NULL;
     ib_res->ib_handle = ib_handle;
     ib_res->qp = create_ibv_qp(ib_handle);
-    ib_res->remote_props = (struct connection_data_s *)(malloc(sizeof(struct connection_data_s)));
+    ib_res->remote_props = (struct connection_data_s *)(calloc(1, sizeof(struct connection_data_s)));
     if (!ib_res->remote_props) {
         destroy_ib_resource(ib_res);
         return NULL;
