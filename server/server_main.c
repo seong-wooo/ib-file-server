@@ -1,9 +1,11 @@
 
 #include <sys/epoll.h>
+#include <sys/select.h>
 #include "ib_server.h"
+#include "server.h"
 
 int main(int argc, char const *argv[]) {
-    struct server_resources_s *res = create_server_resources();
+    struct ib_server_resources_s *res = create_ib_server_resources();
     
     int ready_fd;
     struct epoll_event events[FD_SETSIZE];

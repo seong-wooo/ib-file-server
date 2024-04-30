@@ -5,39 +5,8 @@
 #include <sys/socket.h>
 #include "ib_server.h"
 
-int create_epoll(void) {
-    int epoll_fd = epoll_create(1);
-    if (epoll_fd < 0) {
-        perror("epoll_create()");
-        exit(EXIT_FAILURE);
-    }
-    return epoll_fd;
-}
-
-void create_pipe(int pipefd[2]) {
-    if (pipe(pipefd) == -1) {
-        perror("pipe");
-        exit(EXIT_FAILURE);
-    }
-}
-
-void register_event(int epoll_fd, int registered_fd, enum fd_type type, void *ptr) {
-    struct fd_info_s *fd_info = (struct fd_info_s *)malloc(sizeof(struct fd_info_s));
-    fd_info->fd = registered_fd;
-    fd_info->type = type;
-    fd_info->ptr = ptr;
-
-    struct epoll_event ev;
-    ev.events = EPOLLIN;
-    ev.data.ptr = fd_info;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, registered_fd, &ev) < 0) { 
-        perror("epoll_ctl()");
-        exit(EXIT_FAILURE);
-    }
-}
-
-struct server_resources_s *create_server_resources(void) {
-    struct server_resources_s *res = (struct server_resources_s *)malloc(sizeof(struct server_resources_s));
+struct ib_server_resources_s *create_ib_server_resources(void) {
+    struct ib_server_resources_s *res = (struct ib_server_resources_s *)malloc(sizeof(struct ib_server_resources_s));
     res->epoll_fd = create_epoll();
     res->sock = create_server_socket();
     res->qp_map = create_hash_map(1000);
@@ -52,16 +21,7 @@ struct server_resources_s *create_server_resources(void) {
     return res;
 }
 
-int poll_event(int epoll_fd, struct epoll_event *events) {
-    int ready_fd = epoll_wait(epoll_fd, events, FD_SETSIZE, -1);
-        if (ready_fd < 0) {
-            perror("epoll_wait()");
-            exit(EXIT_FAILURE);
-        }
-    return ready_fd;
-}
-
-void accept_ib_client(struct server_resources_s *res) {
+void accept_ib_client(struct ib_server_resources_s *res) {
     struct ib_resources_s *ib_res = create_init_ib_resources(res->ib_handle);
     
     ib_res->sock = accept_socket(res->sock);
@@ -117,7 +77,7 @@ void send_job(struct queue_s *queue, struct ibv_mr *mr, uint32_t qp_num) {
     enqueue_job(queue, job);
 }
 
-void poll_completion(struct server_resources_s *res) {
+void poll_completion(struct ib_server_resources_s *res) {
     struct ibv_cq *event_cq;
     void *event_cq_ctx;
     struct ibv_wc wc;
@@ -165,7 +125,7 @@ void poll_completion(struct server_resources_s *res) {
     notify_cq(res->ib_handle->cq);
 }
 
-void destroy_res(struct server_resources_s *res) {
+void destroy_res(struct ib_server_resources_s *res) {
     destroy_ib_handle(res->ib_handle);
     close(res->sock);
     close(res->pipefd[0]);

@@ -83,11 +83,3 @@ void close_socket(socket_t sock) {
         close(sock);
     }
 }
-
-socket_t create_server_socket(void) {
-    socket_t sock = create_socket();
-    bind_socket(sock);
-    listen_socket(sock, SOMAXCONN);
-
-    return sock;
-}
