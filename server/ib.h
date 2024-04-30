@@ -6,8 +6,7 @@
 #include "message.h"
 
 #define IB_PORT 1
-#define MR_POOL_SIZE 1024
-#define MAX_WR 64
+#define MAX_WR 1024
 #define COMP_VECTOR 1
 
 struct connection_data_s {

@@ -34,7 +34,7 @@ void write_flie(struct packet_s *packet, char *response) {
     char *filename = packet->header.filename;
     int offset = packet->header.offset;
     char *data = packet->body.data;
-    char log_message[256];
+    char log_message[MESSAGE_SIZE];
 
     FILE *fp = fopen(filename, "rb+");
     if (fp == NULL) {

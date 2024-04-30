@@ -7,7 +7,6 @@
 
 #define IB_PORT 1
 #define IB_SERVER_PORT 9001
-#define MR_POOL_SIZE 1024
 #define MAX_WR 64
 #define COMP_VECTOR 1
 

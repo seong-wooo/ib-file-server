@@ -121,7 +121,7 @@ struct ibv_mr *create_mr(struct ibv_pd *pd) {
 struct queue_s *create_ibv_mr_pool(struct ibv_pd *pd) {
     struct queue_s* queue = create_queue();
 
-    for (int i = 0; i < MR_POOL_SIZE; i++) {
+    for (int i = 0; i < MAX_WR; i++) {
         struct ibv_mr *mr = create_mr(pd);
         enqueue(queue, mr);
     }
