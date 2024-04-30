@@ -1,13 +1,11 @@
 #ifndef WTHR_H
 #define WTHR_H
-#include "message.h"
 #include "queue.h"
 
 #define MAX_THREADS 8
 
 struct job_s {
-    uint32_t qp_num;
-    struct ibv_mr *mr;
+    void *meta_data;
     struct packet_s *packet;
 };
 

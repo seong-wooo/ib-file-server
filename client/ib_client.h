@@ -1,12 +1,11 @@
-#ifndef IB_H
-#define IB_H
+#ifndef IB_CLIENT_H
+#define IB_CLIENT_H
 #include <stdint.h>
 #include <infiniband/verbs.h>
 #include "tcp_ip.h"
 #include "message.h"
 
 #define IB_PORT 1
-#define MR_BUF_SIZE 4096
 #define MR_POOL_SIZE 1024
 #define MAX_WR 64
 #define COMP_VECTOR 1
@@ -34,12 +33,5 @@ struct ib_resources_s {
     socket_t sock;
 };
 
-struct ib_handle_s *create_ib_handle(void);
-struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle);
-struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle);
-void post_receive(struct ibv_qp *qp, struct ibv_mr *mr);
-void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet);
-void poll_completion(struct ib_handle_s *ib_handle);
-void destroy_ib_resource(struct ib_resources_s *ib_res);
-void destroy_ib_handle(struct ib_handle_s *ib_handle);
+void ib_client(void);
 #endif

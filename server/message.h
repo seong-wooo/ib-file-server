@@ -3,11 +3,14 @@
 
 #include <stdint.h>
 
+#define MESSAGE_SIZE 4096
+
 #define READ 'r'
 #define WRITE 'w'
 #define DELETE 'd'
 #define QUIT 'q'
 #define LIST 'l'
+
 
 struct packet_header_s {
     char option;
@@ -26,6 +29,7 @@ struct packet_s {
     struct packet_body_s body;
 };
 
-struct packet_s *create_response_packet(void *data);
+void serialize_packet(struct packet_s *packet, void *buffer);
+struct packet_s *deserialize_packet(void *data);
 void free_packet(struct packet_s *packet);
 #endif

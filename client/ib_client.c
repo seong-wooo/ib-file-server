@@ -3,7 +3,7 @@
 #include <netinet/in.h>
 #include <infiniband/verbs.h>
 #include <stdlib.h>
-#include "ib.h"
+#include "ib_client.h"
 
 struct ibv_device **create_device_list() {
     struct ibv_device **device_list = ibv_get_device_list(NULL);
@@ -88,8 +88,8 @@ void *create_buffer(size_t buffer_size) {
 }
 
 struct ibv_mr *create_ibv_mr(struct ibv_pd *pd) {
-    void *mr_addr = create_buffer(MR_BUF_SIZE);
-    struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MR_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
+    void *mr_addr = create_buffer(MESSAGE_SIZE);
+    struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MESSAGE_SIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
     if (!mr) {
         perror("ibv_reg_mr");
         exit(EXIT_FAILURE);
@@ -156,8 +156,8 @@ struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle) {
     ib_res->qp = create_ibv_qp(ib_handle);
     ib_res->remote_props = (struct connection_data_s *)(calloc(1, sizeof(struct connection_data_s)));
     if (!ib_res->remote_props) {
-        destroy_ib_resource(ib_res);
-        return NULL;
+        perror("calloc()");
+        exit(EXIT_FAILURE);
     }
     ib_res->sock = create_socket();
 
@@ -271,7 +271,7 @@ void post_receive(struct ibv_qp *qp, struct ibv_mr *mr) {
     memset(&sge, 0, sizeof(sge));
     sge = (struct ibv_sge){
         .addr = (uint64_t)(uintptr_t)mr->addr,
-        .length = MR_BUF_SIZE,
+        .length = MESSAGE_SIZE,
         .lkey = mr->lkey,
     };
 
@@ -313,9 +313,7 @@ void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet) {
         .opcode = IBV_WR_SEND,
         .send_flags = IBV_SEND_SIGNALED,
     };
-    
-    memcpy(mr->addr, &packet->header, header_size);
-    memcpy(mr->addr + header_size, packet->body.data, packet->header.body_size);
+    serialize_packet(packet, mr->addr);
 
     if (ibv_post_send(qp, &send_wr, &bad_wr)) {
         perror("ibv_post_send");
@@ -456,4 +454,29 @@ void destroy_ibv_port_attr(struct ibv_port_attr *port_attr) {
     destroy_pd(ib_handle->pd);
     destroy_ctx(ib_handle->ctx);
     destroy_device_list(ib_handle->device_list);
+}
+
+void ib_client(void) {
+    struct ib_handle_s *ib_handle = create_ib_handle();
+    struct ib_resources_s *ib_res = connect_ib_server(ib_handle);
+
+    while(1) {
+        char option = get_option();
+        if (option == QUIT) {
+            break;
+        }
+        struct packet_s *request_packet = create_request_packet(option);
+        post_receive(ib_res->qp, ib_handle->mr);
+        post_send(ib_handle->mr, ib_res->qp, request_packet);
+        // free_packet(request_packet);
+
+        poll_completion(ib_handle); 
+        poll_completion(ib_handle);
+
+        struct packet_s *response_packet = deserialize_packet(ib_handle->mr->addr);
+        printf("[받은 데이터]:\n%s\n", response_packet->body.data); 
+        // free_packet(response_packet);
+    }
+    destroy_ib_resource(ib_res);
+    destroy_ib_handle(ib_handle);
 }

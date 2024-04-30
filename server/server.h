@@ -1,6 +1,11 @@
 #ifndef SERVER_H
 #define SERVER_H
+#include <sys/epoll.h>
 #include "tcp_ip.h"
+
+
+#define IB 'i'
+#define TCP 't'
 
 enum fd_type {
     SERVER_SOCKET,

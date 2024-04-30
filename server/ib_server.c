@@ -41,11 +41,12 @@ void accept_ib_client(struct ib_server_resources_s *res) {
     put(res->qp_map, &ib_res->qp->qp_num, ib_res->qp);
 }
 
-void send_response(struct fd_info_s *fd_info, struct hash_map_s *qp_map) {
+void send_ib_response(struct fd_info_s *fd_info, struct hash_map_s *qp_map, struct queue_s *mr_pool) {
     struct job_s *job;
     read(fd_info->fd, &job, sizeof(&job));
-    struct ibv_qp* qp = (struct ibv_qp *)get(qp_map, &job->qp_num);
-    post_send(job->mr, qp, job->packet);
+    struct ib_meta_data_s *meta_data = (struct ib_meta_data_s *)job->meta_data;
+    struct ibv_qp* qp = (struct ibv_qp *)get(qp_map, &meta_data->qp_num);
+    post_send(meta_data->mr, qp, job->packet);
     free(job);
 }
 
@@ -60,20 +61,14 @@ void disconnect_client(struct fd_info_s *fd_info, struct hash_map_s *qp_map) {
     }
 }
 
-struct ib_resources_s *get_ib_resources(struct hash_map_s *qp_map, uint32_t qp_num) {
-    struct ib_resources_s * ib_res = (struct ib_resources_s *) get(qp_map, &qp_num);
-    if (ib_res == NULL) {
-        fprintf(stderr, "Failed to get ib_res\n");
-        exit(EXIT_FAILURE);
-    }
-    return ib_res;
-}
-
 void send_job(struct queue_s *queue, struct ibv_mr *mr, uint32_t qp_num) {
     struct job_s *job = (struct job_s *)malloc(sizeof(struct job_s));
-    struct packet_s *packet = create_response_packet(mr->addr);
-    job->qp_num = qp_num;
-    job->mr = mr;
+    struct packet_s *packet = deserialize_packet(mr->addr);
+    struct ib_meta_data_s *meta_data = (struct ib_meta_data_s *)malloc(sizeof(struct ib_meta_data_s));
+    meta_data->qp_num = qp_num;
+    meta_data->mr = mr;
+
+    job->meta_data = meta_data;
     job->packet = packet;
     enqueue_job(queue, job);
 }
@@ -154,7 +149,7 @@ void ib_server(void) {
                     break;
                 
                 case PIPE:
-                    send_response(fd_info, res->qp_map);
+                    send_ib_response(fd_info, res->qp_map, res->ib_handle->mr_pool);
                     break;
                 
                 case CLIENT_SOCKET:

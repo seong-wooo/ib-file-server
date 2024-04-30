@@ -6,7 +6,6 @@
 #include "message.h"
 
 #define IB_PORT 1
-#define MR_BUF_SIZE 4096
 #define MR_POOL_SIZE 1024
 #define MAX_WR 64
 #define COMP_VECTOR 1

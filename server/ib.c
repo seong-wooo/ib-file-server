@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <infiniband/verbs.h>
 #include <stdlib.h>
+#include "server.h"
 #include "queue.h"
 #include "ib.h"
 
@@ -108,8 +109,8 @@ void *create_buffer(size_t buffer_size) {
 }
 
 struct ibv_mr *create_mr(struct ibv_pd *pd) {
-    void *mr_addr = create_buffer(MR_BUF_SIZE);
-    struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MR_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
+    void *mr_addr = create_buffer(MESSAGE_SIZE);
+    struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MESSAGE_SIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
     if (!mr) {
         perror("ibv_reg_mr");
         exit(EXIT_FAILURE);
@@ -302,7 +303,7 @@ void post_receive(struct ibv_srq *srq, struct ibv_mr *mr) {
     memset(&sge, 0, sizeof(sge));
     sge = (struct ibv_sge){
         .addr = (uint64_t)(uintptr_t)mr->addr,
-        .length = MR_BUF_SIZE,
+        .length = MESSAGE_SIZE,
         .lkey = mr->lkey,
     };
 
@@ -345,8 +346,7 @@ void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet) {
         .send_flags = IBV_SEND_SIGNALED,
     };
     
-    memcpy(mr->addr, &packet->header, header_size);
-    memcpy(mr->addr + header_size, packet->body.data, packet->header.body_size);
+    serialize_packet(packet, mr->addr);
 
     if (ibv_post_send(qp, &send_wr, &bad_wr)) {
         perror("ibv_post_send");
@@ -366,7 +366,7 @@ void destroy_qp(struct ibv_qp *qp) {
 
 void restore_mr(struct queue_s *mr_pool, struct ibv_mr *mr) {
     if (mr) {
-        memset(mr->addr, 0, MR_BUF_SIZE);
+        memset(mr->addr, 0, MESSAGE_SIZE);
         enqueue(mr_pool, mr);
     }
 }

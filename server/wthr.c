@@ -3,7 +3,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "wthr.h"
-#include "ib.h"
+#include "message.h"
+#include "server.h"
 #include "log.h"
 
 int cthred_pipefd;
@@ -119,7 +120,7 @@ void read_list(char *response)
 }
 
 struct job_s *create_response(struct job_s *job) {
-    char *buf = (char *)calloc(1, MR_BUF_SIZE);
+    char *buf = (char *)calloc(1, MESSAGE_SIZE);
     
     switch (job->packet->header.option) {
     case WRITE:
