@@ -1,7 +1,6 @@
 #ifndef TCP_IP_H
 #define TCP_IP_H
 
-#define SERVER_PORT 9000
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR   -1
 #define SERVER_IP "10.10.10.13"

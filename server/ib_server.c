@@ -9,7 +9,7 @@
 struct ib_server_resources_s *create_ib_server_resources(void) {
     struct ib_server_resources_s *res = (struct ib_server_resources_s *)malloc(sizeof(struct ib_server_resources_s));
     res->epoll_fd = create_epoll();
-    res->sock = create_server_socket();
+    res->sock = create_server_socket(IB_SERVER_PORT);
     res->qp_map = create_hash_map(1000);
     create_pipe(res->pipefd);
     res->queue = create_queue();

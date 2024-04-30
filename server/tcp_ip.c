@@ -51,14 +51,14 @@ socket_t accept_socket(socket_t sock) {
     return client_sock;
 }
 
-void bind_socket(socket_t sock) {
+void bind_socket(socket_t sock, int port) {
     int rc;
     struct sockaddr_in serveraddr;
 
     memset(&serveraddr, 0, sizeof(serveraddr));
     serveraddr.sin_family = AF_INET;
     serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serveraddr.sin_port = htons(SERVER_PORT);
+    serveraddr.sin_port = htons(port);
 
     rc = bind(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
     if (rc == SOCKET_ERROR) {

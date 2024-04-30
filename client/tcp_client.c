@@ -26,7 +26,7 @@ struct packet_s *recv_packet(socket_t sock, void *buffer) {
 
 void tcp_client(void) {
     socket_t sock = create_socket();
-    connect_tcp_to_server(sock, SERVER_IP, SERVER_PORT);
+    connect_tcp_to_server(sock, SERVER_IP, TCP_SERVER_PORT);
     void *buffer = malloc(MESSAGE_SIZE);
 
     while(1) {

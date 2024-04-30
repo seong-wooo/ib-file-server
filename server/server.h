@@ -24,6 +24,6 @@ int create_epoll(void);
 void create_pipe(int pipefd[2]);
 void register_event(int epoll_fd, int registered_fd, enum fd_type type, void *ptr);
 int poll_event(int epoll_fd, struct epoll_event *events);
-socket_t create_server_socket(void);
+socket_t create_server_socket(int port);
 
 #endif

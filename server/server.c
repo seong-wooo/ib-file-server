@@ -6,9 +6,9 @@
 #include <sys/socket.h>
 #include "server.h"
 
-socket_t create_server_socket(void) {
+socket_t create_server_socket(int port) {
     socket_t sock = create_socket();
-    bind_socket(sock);
+    bind_socket(sock, port);
     listen_socket(sock, SOMAXCONN);
 
     return sock;

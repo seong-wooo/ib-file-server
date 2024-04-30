@@ -12,7 +12,7 @@
 struct tcp_server_resources_s *create_tcp_server_resources(void) {
     struct tcp_server_resources_s *res = (struct tcp_server_resources_s *)malloc(sizeof(struct tcp_server_resources_s));
     res->epoll_fd = create_epoll();
-    res->sock = create_server_socket();
+    res->sock = create_server_socket(TCP_SERVER_PORT);
     create_pipe(res->pipefd);
     res->queue = create_queue();
     init_wthr_pool(res->queue, res->pipefd[1]);

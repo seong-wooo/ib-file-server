@@ -3,6 +3,8 @@
 
 #include "server.h"
 
+#define TCP_SERVER_PORT 9000
+
 struct tcp_server_resources_s {
     int epoll_fd;
     socket_t sock;
