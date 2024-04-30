@@ -113,7 +113,6 @@ void poll_completion(struct ib_server_resources_s *res) {
             
             case IBV_WC_SEND:
                 post_receive(res->ib_handle->srq, mr);
-                restore_mr(res->ib_handle->mr_pool, mr);
                 break;
 
             default:
