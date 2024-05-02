@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <time.h>
 #include "tcp_ip.h"
 #include "tcp_client.h"
 #include "message.h"
@@ -41,6 +42,21 @@ void tcp_client(void) {
         printf("[받은 데이터]:\n%s\n", response_packet->body.data);
         
         free_packet(request_packet);
+        free_packet(response_packet);
+    }
+    close_socket(sock);
+}
+
+void *tcp_test_client(void *arg) {
+    struct test_args_s *test_args = (struct test_args_s *)arg;
+    socket_t sock = create_socket();
+    connect_tcp_to_server(sock, SERVER_IP, TCP_SERVER_PORT);
+    void *buffer = malloc(MESSAGE_SIZE);
+
+    for (int i = 0; i < test_args->reps; i++) {
+        send_packet(sock, test_args->packet, buffer);
+        
+        struct packet_s *response_packet = recv_packet(sock, buffer);
         free_packet(response_packet);
     }
     close_socket(sock);

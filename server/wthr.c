@@ -54,7 +54,7 @@ void write_flie(struct packet_s *packet, char *response) {
     fseek(fp, offset, SEEK_SET);
     fwrite(data, sizeof(char), strlen(data), fp);
 
-    snprintf(log_message, 256, "option=%c, filename=%s, offset=%d, data=%s", WRITE, filename, offset, data);
+    snprintf(log_message, MESSAGE_SIZE, "option=%c, filename=%s, offset=%d, data=%s", WRITE, filename, offset, data);
     write_log(LOG_INFO, log_message);
 
     fclose(fp);

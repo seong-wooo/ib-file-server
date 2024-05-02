@@ -4,6 +4,7 @@
 #include <infiniband/verbs.h>
 #include "tcp_ip.h"
 #include "message.h"
+#include "test_client.h"
 
 #define IB_PORT 1
 #define IB_SERVER_PORT 9001
@@ -34,4 +35,6 @@ struct ib_resources_s {
 };
 
 void ib_client(void);
+void *ib_test_client(void *arg);
+
 #endif

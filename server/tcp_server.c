@@ -54,7 +54,6 @@ void send_tcp_response(struct fd_info_s *fd_info) {
     struct job_s *job;
     read(fd_info->fd, &job, sizeof(&job));
     struct packet_s *packet = (struct packet_s *)job->packet;
-    
     struct fd_info_s *client_fd_info = (struct fd_info_s *)job->meta_data;
     serialize_packet(packet, client_fd_info->ptr);
     int rc = send(client_fd_info->fd, client_fd_info->ptr, sizeof(struct packet_header_s) + packet->header.body_size, 0);

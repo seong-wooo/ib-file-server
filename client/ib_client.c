@@ -4,6 +4,7 @@
 #include <infiniband/verbs.h>
 #include <stdlib.h>
 #include "ib_client.h"
+#include <time.h>
 
 struct ibv_device **create_device_list() {
     struct ibv_device **device_list = ibv_get_device_list(NULL);
@@ -468,14 +469,31 @@ void ib_client(void) {
         struct packet_s *request_packet = create_request_packet(option);
         post_receive(ib_res->qp, ib_handle->mr);
         post_send(ib_handle->mr, ib_res->qp, request_packet);
-        // free_packet(request_packet);
+        free_packet(request_packet);
 
         poll_completion(ib_handle); 
         poll_completion(ib_handle);
 
         struct packet_s *response_packet = deserialize_packet(ib_handle->mr->addr);
         printf("[받은 데이터]:\n%s\n", response_packet->body.data); 
-        // free_packet(response_packet);
+        free_packet(response_packet);
+    }
+    destroy_ib_resource(ib_res);
+    destroy_ib_handle(ib_handle);
+}
+
+void *ib_test_client(void *arg) {
+    struct test_args_s *test_args = (struct test_args_s *)arg;
+    struct ib_handle_s *ib_handle = create_ib_handle();
+    struct ib_resources_s *ib_res = connect_ib_server(ib_handle);
+    int count =0;
+    for (int i = 0; i < test_args->reps; i++) {
+        post_receive(ib_res->qp, ib_handle->mr);
+        post_send(ib_handle->mr, ib_res->qp, test_args->packet);
+        poll_completion(ib_handle); 
+        poll_completion(ib_handle);
+        struct packet_s *response_packet = deserialize_packet(ib_handle->mr->addr);
+        free_packet(response_packet);
     }
     destroy_ib_resource(ib_res);
     destroy_ib_handle(ib_handle);

@@ -161,5 +161,5 @@ void ib_server(void) {
         }
     }
     destroy_res(res);
-    printf("[TCP 서버] 서버 종료\n");
+    printf("[IB 서버] 서버 종료\n");
 }
