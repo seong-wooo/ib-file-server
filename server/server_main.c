@@ -8,15 +8,16 @@ int main(int argc, char const *argv[]) {
         printf("실행 시 인자를 입력해주세요. IB: %c, TCP: %c\n", IB, TCP);
         return 1;
     }
-    if (*argv[1] == IB) {
+    switch (*argv[1]) {
+    case IB:
         ib_server();
-    }
-    else if (*argv[1] == TCP) {
+        break;
+    case TCP:
         tcp_server();
-    }
-    else {
+        break;
+    default:
         printf("인자가 올바르지 않습니다.\n");
-        return 1;
+        break;
     }
     return 0;
 }
