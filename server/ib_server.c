@@ -96,7 +96,7 @@ void poll_completion(struct ib_server_resources_s *res) {
         
 
         if (wc.status != IBV_WC_SUCCESS) {
-            fprintf(stderr, "Failed status %s (%d) for wr_id %d\n", ibv_wc_status_str(wc.status), wc.status, (int)wc.wr_id);
+            perror("Completion error");
             exit(EXIT_FAILURE);
         }
         

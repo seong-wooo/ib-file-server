@@ -7,7 +7,8 @@ char get_option(void) {
     char option;
     do {
         fseek(stdin, 0, SEEK_END);
-        printf("[파일 리스트 조회: %c / 파일 읽기 : %c / 파일 쓰기 : %c / 파일 삭제 : %c / 종료 : %c]: ", LIST, READ, WRITE, DELETE, QUIT);
+        printf("[파일 리스트 조회: %c / 파일 읽기 : %c / 파일 쓰기 : %c / 파일 삭제 : %c / 종료 : %c]: ",
+            LIST, READ, WRITE, DELETE, QUIT);
         option = getchar();
         getchar();
     } while (option != LIST && option != READ && option != WRITE && option != DELETE && option != QUIT);

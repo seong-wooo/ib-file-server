@@ -10,7 +10,8 @@
 void print_connected_client(struct sockaddr_in *client_addr) {
     char client_ip[20];
     inet_ntop(AF_INET, &client_addr->sin_addr, client_ip, sizeof(client_ip));
-    printf("[TCP 서버] 클라이언트 접속: IP 주소=%s, 포트 번호=%d\n", client_ip, ntohs(client_addr->sin_port));
+    printf("[TCP 서버] 클라이언트 접속: IP 주소=%s, 포트 번호=%d\n", client_ip, 
+        ntohs(client_addr->sin_port));
 }
 
 void print_disconnected_client(socket_t sock) {
@@ -24,7 +25,8 @@ void print_disconnected_client(socket_t sock) {
 
     char client_ip[20];
     inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, sizeof(client_ip));
-    printf("[TCP 서버] 클라이언트 접속 종료: IP 주소=%s, 포트 번호=%d\n", client_ip, ntohs(client_addr.sin_port));
+    printf("[TCP 서버] 클라이언트 접속 종료: IP 주소=%s, 포트 번호=%d\n", client_ip, 
+        ntohs(client_addr.sin_port));
 }
 
 socket_t create_socket(void) {

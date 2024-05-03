@@ -110,7 +110,8 @@ void *create_buffer(size_t buffer_size) {
 
 struct ibv_mr *create_mr(struct ibv_pd *pd) {
     void *mr_addr = create_buffer(MESSAGE_SIZE);
-    struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MESSAGE_SIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
+    struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MESSAGE_SIZE, IBV_ACCESS_LOCAL_WRITE | 
+        IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
     if (!mr) {
         perror("ibv_reg_mr");
         exit(EXIT_FAILURE);
@@ -209,13 +210,15 @@ struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle) {
 }
 
 void modify_qp_to_init(struct ib_resources_s *ib_res) {
-    enum ibv_qp_attr_mask attr_mask = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
+    enum ibv_qp_attr_mask attr_mask = IBV_QP_STATE | IBV_QP_PKEY_INDEX | 
+        IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
     struct ibv_qp_attr qp_attr;
     qp_attr = (struct ibv_qp_attr){
         .qp_state = IBV_QPS_INIT,
         .pkey_index = 0,
         .port_num = IB_PORT,
-        .qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE,
+        .qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | 
+            IBV_ACCESS_REMOTE_WRITE,
     };
     int ret = ibv_modify_qp(ib_res->qp, &qp_attr, attr_mask);
     if (ret) {
@@ -225,7 +228,8 @@ void modify_qp_to_init(struct ib_resources_s *ib_res) {
 }
 
 void modify_qp_to_rtr(struct ib_resources_s *ib_res) {
-    enum ibv_qp_attr_mask attr_mask = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
+    enum ibv_qp_attr_mask attr_mask = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | 
+        IBV_QP_DEST_QPN | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
     struct ibv_qp_attr attr;
     memset(&attr, 0, sizeof(attr));
     attr = (struct ibv_qp_attr){
@@ -252,7 +256,8 @@ void modify_qp_to_rtr(struct ib_resources_s *ib_res) {
 }
 
 void modify_qp_to_rts(struct ib_resources_s *ib_res) {
-    enum ibv_qp_attr_mask attr_mask = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC;
+    enum ibv_qp_attr_mask attr_mask = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | 
+        IBV_QP_RNR_RETRY | IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC;
     struct ibv_qp_attr attr;
     memset(&attr, 0, sizeof(attr));
     attr = (struct ibv_qp_attr){
