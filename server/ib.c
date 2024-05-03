@@ -184,8 +184,7 @@ struct ibv_qp *create_ibv_qp(struct ib_handle_s *ib_handle) {
 struct ibv_mr *get_mr(struct ib_handle_s *ib_handle) {
     struct ibv_mr *mr = (struct ibv_mr *) dequeue(ib_handle->mr_pool);
     if (!mr) {
-        perror("dequeue");
-        exit(EXIT_FAILURE);
+        return create_mr(ib_handle->pd);
     }
     
     return mr;
