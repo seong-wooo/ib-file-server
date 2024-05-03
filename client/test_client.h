@@ -1,8 +1,8 @@
 #ifndef TEST_CLIENT_H
 #define TEST_CLIENT_H
 
-#define TEST_REPS 1000
-#define TEST_THREADS_COUNT 50
+#define TEST_REPS 100000
+#define TEST_THREADS_COUNT 56
 #define READ_BODY_SIZE 4000
 
 
