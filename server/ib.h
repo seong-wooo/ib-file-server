@@ -6,7 +6,7 @@
 #include "message.h"
 
 #define IB_PORT 1
-#define MAX_WR 1024
+#define MAX_WR 32
 #define COMP_VECTOR 1
 
 struct connection_data_s {
@@ -23,6 +23,7 @@ struct ib_handle_s {
     struct ibv_cq *cq;
     struct ibv_comp_channel *cq_channel;
     struct queue_s *mr_pool;
+    struct queue_s *qp_pool;
 };
 
 struct ib_resources_s {
