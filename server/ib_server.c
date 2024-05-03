@@ -114,7 +114,7 @@ void poll_completion(struct ib_server_resources_s *res) {
                 break;
         }
 
-    } while (rc == 0);
+    } while (rc);
 
     ibv_ack_cq_events(event_cq, 1);
     notify_cq(res->ib_handle->cq);

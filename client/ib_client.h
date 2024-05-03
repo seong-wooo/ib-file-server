@@ -24,7 +24,6 @@ struct ib_handle_s {
     struct ibv_mr *mr;
     struct ibv_srq *srq;
     struct ibv_cq *cq;
-    struct ibv_comp_channel *cq_channel;
 };
 
 struct ib_resources_s {

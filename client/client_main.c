@@ -35,11 +35,10 @@ void *test_client(void *func(void*), void* arg, char *msg) {
             perror("pthread_join");
             exit(EXIT_FAILURE);
         }
-        printf("Thread %d finished\n", i);
     }
     check_time(&end, "end");
     diff = difftime(end, start);
-    printf("(%s) 반복 횟수 %d, 걸린 시간: %f s\n", msg, READ_BODY_SIZE, TEST_REPS, diff);
+    printf("(%s) 반복 횟수 %d, 걸린 시간: %f s\n", msg, TEST_REPS, diff);
 }
 
 int main(int argc, char const *argv[])
@@ -58,8 +57,8 @@ int main(int argc, char const *argv[])
         printf("READ_TEST\n");
         struct packet_s *packet = create_test_read_packet();
         struct test_args_s test_args = {TEST_REPS, packet};
-        test_client(ib_test_client, &test_args, "ib");
         test_client(tcp_test_client, &test_args, "tcp");
+        test_client(ib_test_client, &test_args, "ib");
 
         free_packet(packet);
     }

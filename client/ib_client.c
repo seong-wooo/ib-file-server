@@ -41,38 +41,15 @@ struct ibv_pd *create_ibv_pd(struct ibv_context *ctx) {
     return pd;
 }
 
-struct ibv_comp_channel *create_comp_channel(struct ibv_context *ctx) {
+struct ibv_cq *create_ibv_cq(struct ibv_context *ctx) {
     if (!ctx) 
         return NULL;
-    struct ibv_comp_channel *cq_channel = ibv_create_comp_channel(ctx);
-    if (!cq_channel) {
-        perror("ibv_create_comp_channel");
-        exit(EXIT_FAILURE);
-    }
-
-    return cq_channel;
-
-}
-
-void notify_cq(struct ibv_cq *cq) {
-    int rc = ibv_req_notify_cq(cq, 0);
-    if (rc) {
-        perror("ibv_req_notify_cq");
-        exit(EXIT_FAILURE);
-    }
-}
-
-struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *cq_channel) {
-    if (!ctx) 
-        return NULL;
-    struct ibv_cq *cq = ibv_create_cq(ctx, 100, NULL, cq_channel, COMP_VECTOR);
+    struct ibv_cq *cq = ibv_create_cq(ctx, 100, NULL, NULL, 0);
     if (!cq)
     {
         perror("ibv_create_cq");
         exit(EXIT_FAILURE);
     }
-
-    notify_cq(cq);
 
     return cq;
 }
@@ -116,9 +93,8 @@ struct ib_handle_s *create_ib_handle(void) {
     ib_handle->device_list = create_device_list();
     ib_handle->ctx = create_ibv_context(ib_handle->device_list);
     ib_handle->pd = create_ibv_pd(ib_handle->ctx);
-    ib_handle->cq_channel = create_comp_channel(ib_handle->ctx);
     ib_handle->mr = create_ibv_mr(ib_handle->pd);
-    ib_handle->cq = create_ibv_cq(ib_handle->ctx, ib_handle->cq_channel);
+    ib_handle->cq = create_ibv_cq(ib_handle->ctx);
     ib_handle->port_attr = create_port_attr(ib_handle->ctx);
 
     return ib_handle;
@@ -332,28 +308,16 @@ void destroy_qp(struct ibv_qp *qp) {
 }
 
 void poll_completion(struct ib_handle_s *ib_handle) {
-    struct ibv_cq *event_cq;
-    void *event_cq_ctx;
+    int rc;
     struct ibv_wc wc;
     
-    notify_cq(ib_handle->cq);
-    int rc = ibv_get_cq_event(ib_handle->cq_channel, &event_cq, &event_cq_ctx);
-    if (rc) {
-        perror("ibv_get_cq_event");
-        exit(EXIT_FAILURE);
-    }
-
     do {
-        rc = ibv_poll_cq(event_cq, 1, &wc);
+        rc = ibv_poll_cq(ib_handle->cq, 1, &wc);
         if (rc < 0) {
             perror("ibv_poll_cq");
             exit(EXIT_FAILURE);
         }
     } while (rc == 0);
-    
-
-    ibv_ack_cq_events(event_cq, 1);
-    notify_cq(ib_handle->cq);
 }
 
 void destroy_ib_resource(struct ib_resources_s *ib_res) {
@@ -379,15 +343,6 @@ void destroy_cq(struct ibv_cq *cq) {
     if (cq) {
         if (ibv_destroy_cq(cq)) {
             perror("ibv_destroy_cq");
-            exit(EXIT_FAILURE);
-        }
-    }
-}
-
-void destroy_cq_channel(struct ibv_comp_channel *cq_channel) {
-    if (cq_channel) {
-        if (ibv_destroy_comp_channel(cq_channel)) {
-            perror("ibv_destroy_comp_channel");
             exit(EXIT_FAILURE);
         }
     }
@@ -449,7 +404,6 @@ void destroy_ibv_port_attr(struct ibv_port_attr *port_attr) {
     free_buffer(ib_handle->mr->addr);
     destroy_mr(ib_handle->mr);
     destroy_cq(ib_handle->cq);
-    destroy_cq_channel(ib_handle->cq_channel);
     destroy_ibv_port_attr(ib_handle->port_attr);
     destroy_srq(ib_handle->srq);
     destroy_pd(ib_handle->pd);
