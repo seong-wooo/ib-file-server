@@ -11,7 +11,7 @@
 
 struct tcp_server_resources_s *create_tcp_server_resources(void) {
     struct tcp_server_resources_s *res = 
-                    (struct tcp_server_resources_s *)malloc(sizeof(struct tcp_server_resources_s));
+        (struct tcp_server_resources_s *)malloc(sizeof(struct tcp_server_resources_s));
     res->epoll_fd = create_epoll();
     res->sock = create_server_socket(TCP_SERVER_PORT);
     create_pipe(res->pipefd);
@@ -57,7 +57,8 @@ void send_tcp_response(struct fd_info_s *fd_info) {
     struct packet_s *packet = (struct packet_s *)job->packet;
     struct fd_info_s *client_fd_info = (struct fd_info_s *)job->meta_data;
     serialize_packet(packet, client_fd_info->ptr);
-    int rc = send(client_fd_info->fd, client_fd_info->ptr, sizeof(struct packet_header_s) + packet->header.body_size, 0);
+    int rc = send(client_fd_info->fd, client_fd_info->ptr, 
+        sizeof(struct packet_header_s) + packet->header.body_size, 0);
 
     if (rc == SOCKET_ERROR) {
         perror("send()");

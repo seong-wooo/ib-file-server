@@ -310,7 +310,8 @@ void send_qp_sync_data(struct ib_resources_s *ib_res) {
 
 int recv_qp_sync_data(struct ib_resources_s *ib_res) {
     int rc;
-    rc = recv(ib_res->sock, ib_res->remote_props, sizeof(*ib_res->remote_props), MSG_WAITALL);
+    rc = recv(ib_res->sock, ib_res->remote_props, 
+        sizeof(*ib_res->remote_props), MSG_WAITALL);
     if (rc == SOCKET_ERROR) {
         perror("recv");
         exit(EXIT_FAILURE);

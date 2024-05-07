@@ -7,7 +7,8 @@
 #include "ib_server.h"
 
 struct ib_server_resources_s *create_ib_server_resources(void) {
-    struct ib_server_resources_s *res = (struct ib_server_resources_s *)malloc(sizeof(struct ib_server_resources_s));
+    struct ib_server_resources_s *res = 
+        (struct ib_server_resources_s *)malloc(sizeof(struct ib_server_resources_s));
     res->epoll_fd = create_epoll();
     res->sock = create_server_socket(IB_SERVER_PORT);
     res->qp_map = create_hash_map(1000);
@@ -64,7 +65,8 @@ void disconnect_client(struct fd_info_s *fd_info, struct hash_map_s *qp_map) {
 void send_job(struct queue_s *queue, struct ibv_mr *mr, uint32_t qp_num) {
     struct job_s *job = (struct job_s *)malloc(sizeof(struct job_s));
     struct packet_s *packet = deserialize_packet(mr->addr);
-    struct ib_meta_data_s *meta_data = (struct ib_meta_data_s *)malloc(sizeof(struct ib_meta_data_s));
+    struct ib_meta_data_s *meta_data = 
+        (struct ib_meta_data_s *)malloc(sizeof(struct ib_meta_data_s));
     meta_data->qp_num = qp_num;
     meta_data->mr = mr;
 
