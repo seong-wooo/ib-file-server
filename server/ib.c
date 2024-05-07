@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <infiniband/verbs.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "server.h"
 #include "queue.h"
 #include "ib.h"
@@ -193,9 +194,33 @@ struct ib_handle_s *create_ib_handle(void) {
     return ib_handle;
 }
 
+double calc_usage_memory_percent(void) {
+    FILE *file;
+    char buffer[256];
+    unsigned long long total_memory, free_memory;
+    file = fopen("/proc/meminfo", "r");
+    if (file == NULL) {
+        perror("Error opening /proc/meminfo");
+        return 1;
+    }
+    fgets(buffer, sizeof(buffer), file);
+    sscanf(buffer, "MemTotal: %llu kB", &total_memory);
+
+    fgets(buffer, sizeof(buffer), file);
+    sscanf(buffer, "MemFree: %llu kB", &free_memory);
+
+    fclose(file);
+
+    unsigned long long used_memory = total_memory - free_memory;
+    return ((double)used_memory / total_memory) * 100;
+}
+
 struct ibv_mr *get_mr(struct ib_handle_s *ib_handle) {
     struct ibv_mr *mr = (struct ibv_mr *) dequeue(ib_handle->mr_pool);
     if (!mr) {
+        if (calc_usage_memory_percent() > 80) {
+            return NULL;
+        }
         return create_mr(ib_handle->pd);
     }
     
@@ -240,8 +265,8 @@ void modify_qp_to_init(struct ib_resources_s *ib_res) {
         .qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | 
             IBV_ACCESS_REMOTE_WRITE,
     };
-    int ret = ibv_modify_qp(ib_res->qp, &qp_attr, attr_mask);
-    if (ret) {
+    int rc = ibv_modify_qp(ib_res->qp, &qp_attr, attr_mask);
+    if (rc) {
         perror("ibv_modify_qp");
         exit(EXIT_FAILURE);
     }

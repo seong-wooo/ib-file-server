@@ -35,7 +35,9 @@ void accept_ib_client(struct ib_server_resources_s *res) {
     modify_qp_to_rts(ib_res);
     
     struct ibv_mr *mr = get_mr(res->ib_handle);
-    post_receive(ib_res->ib_handle->srq, mr);
+    if (mr != NULL) {
+        post_receive(ib_res->ib_handle->srq, mr);
+    }
     send_qp_sync_data(ib_res);
 
     register_event(res->epoll_fd, ib_res->sock, CLIENT_SOCKET, ib_res);
