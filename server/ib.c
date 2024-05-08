@@ -265,8 +265,8 @@ void modify_qp_to_init(struct ib_resources_s *ib_res) {
         .qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | 
             IBV_ACCESS_REMOTE_WRITE,
     };
-    int rc = ibv_modify_qp(ib_res->qp, &qp_attr, attr_mask);
-    if (rc) {
+    int ret = ibv_modify_qp(ib_res->qp, &qp_attr, attr_mask);
+    if (ret) {
         perror("ibv_modify_qp");
         exit(EXIT_FAILURE);
     }

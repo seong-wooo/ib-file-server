@@ -313,16 +313,47 @@ void destroy_qp(struct ibv_qp *qp) {
     }
 }
 
-void poll_completion(struct ib_handle_s *ib_handle) {
+void print_packet(void *buffer) {
+    struct packet_s *packet = deserialize_packet(buffer);
+    printf("[받은 데이터]:\n%s\n", packet->body.data);
+    free_packet(packet);
+}
+
+void poll_completion(struct ib_handle_s *ib_handle)
+{
     int rc;
     struct ibv_wc wc;
-    
+
     do {
         rc = ibv_poll_cq(ib_handle->cq, 1, &wc);
-        if (rc < 0) {
+        if (rc < 0)
+        {
             perror("ibv_poll_cq");
             exit(EXIT_FAILURE);
         }
+
+        if (rc == 0)
+        {
+            continue;
+        }
+
+        if (wc.status != IBV_WC_SUCCESS)
+        {
+            perror("Completion error");
+            exit(EXIT_FAILURE);
+        }
+
+        struct ibv_mr *mr = (struct ibv_mr *)wc.wr_id;
+        switch (wc.opcode) {
+            case IBV_WC_RECV:
+                print_packet(ib_handle->mr->addr);
+                break;
+            case IBV_WC_SEND:
+                break;
+            default:
+                break;
+        }
+
     } while (rc == 0);
 }
 
@@ -433,10 +464,6 @@ void ib_client(void) {
 
         poll_completion(ib_handle); 
         poll_completion(ib_handle);
-
-        struct packet_s *response_packet = deserialize_packet(ib_handle->mr->addr);
-        printf("[받은 데이터]:\n%s\n", response_packet->body.data); 
-        free_packet(response_packet);
     }
     destroy_ib_resource(ib_res);
     destroy_ib_handle(ib_handle);
