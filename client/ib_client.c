@@ -385,15 +385,6 @@ void destroy_cq(struct ibv_cq *cq) {
     }
 }
 
-void destroy_srq(struct ibv_srq *srq) {
-    if (srq) {
-        if (ibv_destroy_srq(srq)) {
-            perror("ibv_destroy_srq");
-            exit(EXIT_FAILURE);
-        }
-    }
-}
-
 void destroy_pd(struct ibv_pd *pd)
 {
     if (pd) {
@@ -442,7 +433,6 @@ void destroy_ibv_port_attr(struct ibv_port_attr *port_attr) {
     destroy_mr(ib_handle->mr);
     destroy_cq(ib_handle->cq);
     destroy_ibv_port_attr(ib_handle->port_attr);
-    destroy_srq(ib_handle->srq);
     destroy_pd(ib_handle->pd);
     destroy_ctx(ib_handle->ctx);
     destroy_device_list(ib_handle->device_list);

@@ -22,7 +22,6 @@ struct ib_handle_s {
     struct ibv_context *ctx;
     struct ibv_pd *pd;
     struct ibv_mr *mr;
-    struct ibv_srq *srq;
     struct ibv_cq *cq;
 };
 
