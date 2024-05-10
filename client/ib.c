@@ -134,7 +134,7 @@ struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle) {
         perror("calloc()");
         exit(EXIT_FAILURE);
     }
-    ib_res->sock = create_socket();
+    ib_res->sock = connect_tcp_to_server(SERVER_IP, IB_SERVER_PORT);
 
     return ib_res;
 }
@@ -232,7 +232,6 @@ int recv_qp_sync_data(struct ib_resources_s *ib_res) {
 struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle) {
     struct ib_resources_s *ib_res = create_init_ib_resources(ib_handle);
 
-    connect_tcp_to_server(ib_res->sock, SERVER_IP, IB_SERVER_PORT);
     send_qp_sync_data(ib_res);
     recv_qp_sync_data(ib_res);
     modify_qp_to_init(ib_res);

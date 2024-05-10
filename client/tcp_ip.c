@@ -23,9 +23,10 @@ void close_socket(socket_t sock) {
     }
 }
 
-void connect_tcp_to_server(socket_t sock, char *ip, int port) {
+socket_t connect_tcp_to_server(char *ip, int port) {
     int rc;
     struct sockaddr_in serveraddr;
+    socket_t sock = create_socket();
 
     memset(&serveraddr, 0, sizeof(serveraddr));
     serveraddr.sin_family = AF_INET;
@@ -36,4 +37,6 @@ void connect_tcp_to_server(socket_t sock, char *ip, int port) {
         perror("listen()");
         exit(EXIT_FAILURE);
     }
+
+    return sock;
 }
