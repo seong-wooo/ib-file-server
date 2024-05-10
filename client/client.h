@@ -3,6 +3,5 @@
 
 #define IB 'i'
 #define TCP 't'
-#define READ_TEST 'r'
 
 #endif

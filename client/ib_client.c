@@ -4,10 +4,7 @@
 #include <infiniband/verbs.h>
 #include <stdlib.h>
 #include <time.h>
-#include "message.h"
 #include "ib_client.h"
-#include "ib.h"
-#include "test_client.h"
 
 void ib_client(void) {
     struct ib_handle_s *ib_handle = create_ib_handle();
@@ -30,23 +27,6 @@ void ib_client(void) {
         printf("[받은 데이터]:\n%s\n", packet->body.data);
         free_packet(packet);
 
-    }
-    destroy_ib_resource(ib_res);
-    destroy_ib_handle(ib_handle);
-}
-
-void *ib_test_client(void *arg) {
-    struct test_args_s *test_args = (struct test_args_s *)arg;
-    struct ib_handle_s *ib_handle = create_ib_handle();
-    struct ib_resources_s *ib_res = connect_ib_server(ib_handle);
-    int count =0;
-    for (int i = 0; i < test_args->reps; i++) {
-        post_receive(ib_res->qp, ib_handle->mr);
-        post_send(ib_handle->mr, ib_res->qp, test_args->packet);
-        poll_completion(ib_handle); 
-        poll_completion(ib_handle);
-        struct packet_s *response_packet = deserialize_packet(ib_handle->mr->addr);
-        free_packet(response_packet);
     }
     destroy_ib_resource(ib_res);
     destroy_ib_handle(ib_handle);
