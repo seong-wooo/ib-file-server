@@ -1,8 +1,10 @@
 #include <stdlib.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <string.h>
 #include "client.h"
 #include "ib_client.h"
 #include "tcp_client.h"
-#include <pthread.h>
 
 void check_time(time_t *current, const char *msg) {
     time(current);
