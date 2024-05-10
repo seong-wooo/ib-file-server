@@ -23,7 +23,6 @@ struct ib_handle_s {
     struct ibv_cq *cq;
     struct ibv_comp_channel *cq_channel;
     struct queue_s *mr_pool;
-    struct queue_s *qp_pool;
 };
 
 struct ib_resources_s {
