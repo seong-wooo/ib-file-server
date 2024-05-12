@@ -2,10 +2,9 @@
 #include <sys/socket.h>
 #include "ib.h"
 
-struct ibv_device **create_device_list() {
+struct ibv_device **create_device_list(void) {
     struct ibv_device **device_list = ibv_get_device_list(NULL);
-    if (!device_list)
-    {
+    if (!device_list) {
         perror("ibv_get_device_list");
         exit(EXIT_FAILURE);
     }
@@ -13,11 +12,13 @@ struct ibv_device **create_device_list() {
 }
 
 struct ibv_context *create_ibv_context(struct ibv_device **device_list) {
-    if (!device_list) 
+    if (!device_list) {
         return NULL;
-    struct ibv_context *ctx = ibv_open_device( device_list[0]);
-    if (!ctx)
-    {
+    }
+
+    struct ibv_context *ctx = ibv_open_device(device_list[0]);
+
+    if (!ctx) {
         perror("ibv_open_device");
         exit(EXIT_FAILURE);
     }
@@ -29,7 +30,9 @@ struct ibv_pd *create_ibv_pd(struct ibv_context *ctx) {
     if (!ctx) { 
         return NULL;
     }
+    
     struct ibv_pd *pd = ibv_alloc_pd(ctx);
+    
     if (!pd) {
         perror("ibv_alloc_pd");
         exit(EXIT_FAILURE);
@@ -38,11 +41,13 @@ struct ibv_pd *create_ibv_pd(struct ibv_context *ctx) {
 }
 
 struct ibv_cq *create_ibv_cq(struct ibv_context *ctx) {
-    if (!ctx) 
+    if (!ctx) { 
         return NULL;
+    }
+
     struct ibv_cq *cq = ibv_create_cq(ctx, 100, NULL, NULL, 0);
-    if (!cq)
-    {
+
+    if (!cq) {
         perror("ibv_create_cq");
         exit(EXIT_FAILURE);
     }
@@ -51,17 +56,21 @@ struct ibv_cq *create_ibv_cq(struct ibv_context *ctx) {
 }
 
 void *create_buffer(size_t buffer_size) {
-    void *mr_addr = (void *)malloc(buffer_size);
+    void *mr_addr = (void *)calloc(1, buffer_size);
+    
     if (!mr_addr) {
         perror("malloc");
         exit(EXIT_FAILURE);
     }
-    memset(mr_addr, 0, buffer_size);
     
     return mr_addr;
 }
 
 struct ibv_mr *create_ibv_mr(struct ibv_pd *pd) {
+    if (!pd) {
+        return NULL;
+    }
+
     void *mr_addr = create_buffer(MESSAGE_SIZE);
     struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MESSAGE_SIZE, 
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
@@ -74,11 +83,17 @@ struct ibv_mr *create_ibv_mr(struct ibv_pd *pd) {
 }
 
 struct ibv_port_attr *create_port_attr(struct ibv_context *ctx) {
-    if (!ctx) 
+    if (!ctx) {
         return NULL;
-    struct ibv_port_attr *port_attr = (struct ibv_port_attr *)(malloc(sizeof(struct ibv_port_attr)));
-    if (!port_attr) 
+    }
+    
+    struct ibv_port_attr *port_attr = 
+        (struct ibv_port_attr *)(malloc(sizeof(struct ibv_port_attr)));
+    
+    if (!port_attr) {
         return NULL;
+    }
+    
     if (ibv_query_port(ctx, IB_PORT, port_attr)) {
         perror("ibv_query_port");
         exit(EXIT_FAILURE);

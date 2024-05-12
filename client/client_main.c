@@ -10,17 +10,17 @@ int main(int argc, char const *argv[])
         return 1;
     }
     switch (*argv[1]) {
-    case IB:
-        ib_client();
-        break;
-    
-    case TCP:
-        tcp_client();
-        break;
+        case IB:
+            ib_client();
+            break;
+        
+        case TCP:
+            tcp_client();
+            break;
 
-    default:
-        printf("인자가 올바르지 않습니다.\n");
-        break;
-    }
+        default:
+            printf("인자가 올바르지 않습니다.\n");
+            break;
+        }
     return 0;
 }

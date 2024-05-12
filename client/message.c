@@ -37,7 +37,7 @@ int get_length(void) {
 
 void get_data(char **data) {
     printf("[쓸 내용]: ");
-    char temp[4096];
+    char temp[MESSAGE_SIZE];
     fgets(temp, sizeof(temp), stdin);
     temp[strlen(temp) - 1] = '\0';
 
