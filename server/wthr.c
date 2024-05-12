@@ -14,8 +14,8 @@ pthread_mutex_t mutex;
 void enqueue_job(struct queue_s *queue, struct job_s* job) {
     pthread_mutex_lock(&mutex);
     enqueue(queue, job);
-    pthread_cond_signal(&q_empty_cond);
     pthread_mutex_unlock(&mutex);
+    pthread_cond_signal(&q_empty_cond);
 }
 
 struct job_s* dequeue_job(struct queue_s *queue) {
