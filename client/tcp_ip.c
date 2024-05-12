@@ -40,3 +40,22 @@ socket_t connect_tcp_to_server(char *ip, int port) {
 
     return sock;
 }
+
+void send_packet(socket_t sock, struct packet_s *packet, void *buffer) {
+    serialize_packet(packet, buffer);
+    int rc = send(sock, buffer, sizeof(struct packet_header_s) + packet->header.body_size, 0);
+    if (rc == SOCKET_ERROR) {
+        perror("send()");
+        exit(EXIT_FAILURE);
+    }
+}
+
+struct packet_s *recv_packet(socket_t sock, void *buffer) {
+    int rc = recv(sock, buffer, MESSAGE_SIZE, 0);
+    if (rc == SOCKET_ERROR) {
+        perror("recv()");
+        exit(EXIT_FAILURE);
+    }
+
+    return deserialize_packet(buffer);
+}

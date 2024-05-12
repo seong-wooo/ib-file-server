@@ -4,25 +4,6 @@
 #include <time.h>
 #include "tcp_client.h"
 
-void send_packet(socket_t sock, struct packet_s *packet, void *buffer) {
-    serialize_packet(packet, buffer);
-    int rc = send(sock, buffer, sizeof(struct packet_header_s) + packet->header.body_size, 0);
-    if (rc == SOCKET_ERROR) {
-        perror("send()");
-        exit(EXIT_FAILURE);
-    }
-}
-
-struct packet_s *recv_packet(socket_t sock, void *buffer) {
-    int rc = recv(sock, buffer, MESSAGE_SIZE, 0);
-    if (rc == SOCKET_ERROR) {
-        perror("recv()");
-        exit(EXIT_FAILURE);
-    }
-
-    return deserialize_packet(buffer);
-}
-
 void tcp_client(void) {
     socket_t sock = connect_tcp_to_server(SERVER_IP, TCP_SERVER_PORT);
     void *buffer = malloc(MESSAGE_SIZE);
