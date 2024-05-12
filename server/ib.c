@@ -216,7 +216,7 @@ struct ibv_mr *get_mr(struct ib_handle_s *ib_handle) {
     return mr;
 }
 
-struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle) {
+struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle, socket_t sock) {
     if (!ib_handle) 
         return NULL;
     struct ib_resources_s *ib_res = (struct ib_resources_s *)(malloc(sizeof(struct ib_resources_s)));
@@ -229,8 +229,8 @@ struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle) {
         destroy_ib_resource(ib_res);
         return NULL;
     }
-    ib_res->sock = create_socket();
-
+    ib_res->sock = accept_socket(sock);
+    
     return ib_res;
 }
 
