@@ -38,14 +38,14 @@ void accept_ib_client(struct ib_server_resources_s *res) {
     send_qp_sync_data(ib_res);
 
     register_event(res->epoll_fd, ib_res->sock, CLIENT_SOCKET, ib_res);
-    put(res->qp_map, &ib_res->qp->qp_num, ib_res->qp);
+    put(res->qp_map, ib_res->qp->qp_num, ib_res->qp);
 }
 
 void send_ib_response(struct fd_info_s *fd_info, struct hash_map_s *qp_map, struct queue_s *mr_pool) {
     struct job_s *job;
     read(fd_info->fd, &job, sizeof(&job));
     struct ib_meta_data_s *meta_data = (struct ib_meta_data_s *)job->meta_data;
-    struct ibv_qp* qp = (struct ibv_qp *)get(qp_map, &meta_data->qp_num);
+    struct ibv_qp* qp = (struct ibv_qp *)get(qp_map, meta_data->qp_num);
     post_send(meta_data->mr, qp, job->packet);
     free(job);
 }
@@ -55,7 +55,7 @@ void disconnect_client(struct fd_info_s *fd_info, struct hash_map_s *qp_map) {
     int rc = recv(fd_info->fd, buf, sizeof(buf), 0);
     if (rc == 0) {
         struct ib_resources_s *ib_res = (struct ib_resources_s *)fd_info->ptr;
-        remove_key(qp_map, &ib_res->qp->qp_num);
+        remove_key(qp_map, ib_res->qp->qp_num);
         destroy_ib_resource(fd_info->ptr);
         free(fd_info);
     }

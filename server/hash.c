@@ -7,14 +7,14 @@
 struct hash_map_s* create_hash_map(int size) {
     struct hash_map_s* hash_map = (struct hash_map_s*)malloc(sizeof(struct hash_map_s));
     if (hash_map == NULL) {
-        fprintf(stderr, "Memory allocation failed.\n");
+        perror("malloc()");
         exit(EXIT_FAILURE);
     }
 
     hash_map->size = size;
     hash_map->buckets = (struct hash_node_s**)malloc(sizeof(struct hash_node_s*) * size);
     if (hash_map->buckets == NULL) {
-        fprintf(stderr, "Memory allocation failed.\n");
+        perror("malloc()");
         exit(EXIT_FAILURE);
     }
 
@@ -25,20 +25,15 @@ struct hash_map_s* create_hash_map(int size) {
     return hash_map;
 }
 
-int hash(struct hash_map_s* hash_map, uint32_t* key) {
-    if (key == NULL) {
-        fprintf(stderr, "Invalid key.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    return *key % hash_map->size;
+int hash(struct hash_map_s* hash_map, uint32_t key) {
+    return key % hash_map->size;
 }
 
-void put(struct hash_map_s* hash_map, uint32_t* key, void* value) {
+void put(struct hash_map_s* hash_map, uint32_t key, void* value) {
     int index = hash(hash_map, key);
     struct hash_node_s* new_node = (struct hash_node_s*)malloc(sizeof(struct hash_node_s));
     if (new_node == NULL) {
-        fprintf(stderr, "Memory allocation failed.\n");
+        perror("malloc()");
         exit(EXIT_FAILURE);
     }
     new_node->key = key;
@@ -56,12 +51,12 @@ void put(struct hash_map_s* hash_map, uint32_t* key, void* value) {
     }
 }
 
-void* get(struct hash_map_s* hash_map, uint32_t* key) {
+void* get(struct hash_map_s* hash_map, uint32_t key) {
     int index = hash(hash_map, key);
 
     struct hash_node_s* temp = hash_map->buckets[index];
     while (temp != NULL) {
-        if (memcmp(temp->key, key, sizeof(uint32_t)) == 0) {
+        if (temp->key == key) {
             return temp->value;
         }
         temp = temp->next;
@@ -70,8 +65,8 @@ void* get(struct hash_map_s* hash_map, uint32_t* key) {
     return NULL;
 }
 
-void remove_key(struct hash_map_s* hash_map, uint32_t* key) {
-    if (hash_map == NULL || key == NULL) {
+void remove_key(struct hash_map_s* hash_map, uint32_t key) {
+    if (hash_map == NULL) {
         return;
     }
 
@@ -80,7 +75,7 @@ void remove_key(struct hash_map_s* hash_map, uint32_t* key) {
     struct hash_node_s* prev = NULL;
 
     while (current != NULL) {
-        if (memcmp(current->key, key, sizeof(uint32_t)) == 0) {
+        if (current->key == key) {
             if (prev == NULL) {
                 hash_map->buckets[index] = current->next;
             } 
