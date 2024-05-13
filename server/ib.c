@@ -187,7 +187,7 @@ double calc_usage_memory_percent(void) {
     FILE *file;
     char buffer[256];
     unsigned long long total_memory, free_memory;
-    file = fopen("/proc/meminfo", READ);
+    file = fopen("/proc/meminfo", "r");
     if (file == NULL) {
         perror("Error opening /proc/meminfo");
         return 1;
