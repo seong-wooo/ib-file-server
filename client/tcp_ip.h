@@ -6,7 +6,9 @@
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR   -1
 #define SERVER_IP "10.10.10.13"
+#define LOCAL_IP "127.0.0.1"
 #define TCP_SERVER_PORT 9000
+#define DB_PORT 9002
 
 
 typedef int socket_t;

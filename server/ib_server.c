@@ -23,22 +23,29 @@ struct ib_server_resources_s *create_ib_server_resources(void) {
     return res;
 }
 
-void accept_ib_client(struct ib_server_resources_s *res) {
-    struct ib_resources_s *ib_res = create_init_ib_resources(res->ib_handle, res->sock);
+void accept_db(struct ib_server_resources_s *res) {
+    socket_t db_socket = accept_socket(res->sock);
 
-    recv_qp_sync_data(ib_res);
-    modify_qp_to_init(ib_res);
-    modify_qp_to_rtr(ib_res);
-    modify_qp_to_rts(ib_res);
-    
-    struct ibv_mr *mr = get_mr(res->ib_handle);
-    if (mr != NULL) {
-        post_receive(ib_res->ib_handle->srq, mr);
+    for (int i=0; i<MAX_QP; i++) {
+        struct ibv_qp *qp = create_ibv_qp(res->ib_handle);
+        struct conn_prop_s *remote_props = recv_qp_sync_data(db_socket);
+        modify_qp_to_init(qp);
+        modify_qp_to_rtr(qp, remote_props);
+        modify_qp_to_rts(qp);
+
+        struct ibv_mr *mr = get_mr(res->ib_handle);
+        if (mr != NULL) {
+            post_receive(res->ib_handle->srq, mr);
+        }
+        struct conn_prop_s local_prop = {
+            .qp_num = qp->qp_num,
+            .lid = res->ib_handle->port_attr->lid,
+        };
+        send_qp_sync_data(db_socket, &local_prop);
+        put(res->qp_map, qp->qp_num, qp);
     }
-    send_qp_sync_data(ib_res);
 
-    register_event(res->epoll_fd, ib_res->sock, CLIENT_SOCKET, ib_res);
-    put(res->qp_map, ib_res->qp->qp_num, ib_res->qp);
+    close_socket(db_socket);
 }
 
 void send_ib_response(struct fd_info_s *fd_info, struct hash_map_s *qp_map, struct queue_s *mr_pool) {
@@ -48,17 +55,6 @@ void send_ib_response(struct fd_info_s *fd_info, struct hash_map_s *qp_map, stru
     struct ibv_qp* qp = (struct ibv_qp *)get(qp_map, meta_data->qp_num);
     post_send(meta_data->mr, qp, job->packet);
     free(job);
-}
-
-void disconnect_client(struct fd_info_s *fd_info, struct hash_map_s *qp_map) {
-    char buf[256];
-    int rc = recv(fd_info->fd, buf, sizeof(buf), 0);
-    if (rc == 0) {
-        struct ib_resources_s *ib_res = (struct ib_resources_s *)fd_info->ptr;
-        remove_key(qp_map, ib_res->qp->qp_num);
-        destroy_ib_resource(fd_info->ptr);
-        free(fd_info);
-    }
 }
 
 void send_job(struct queue_s *queue, struct ibv_mr *mr, uint32_t qp_num) {
@@ -142,7 +138,7 @@ void ib_server(void) {
 
             switch (fd_info->type) {
                 case SERVER_SOCKET:
-                    accept_ib_client(res);
+                    accept_db(res);
                     break;
 
                 case CQ:
@@ -151,10 +147,6 @@ void ib_server(void) {
                 
                 case PIPE:
                     send_ib_response(fd_info, res->qp_map, res->ib_handle->mr_pool);
-                    break;
-                
-                case CLIENT_SOCKET:
-                    disconnect_client(fd_info, res->qp_map);
                     break;
                 default:
                     break;

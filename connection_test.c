@@ -1,7 +1,7 @@
-#include "./client/tcp_ip.h"
-#include "./client/ib.h"
-#include "test.h"
+#include <stdlib.h>
 #include <pthread.h>
+#include "./client/tcp_ip.h"
+#include "test.h"
 
 struct test_param_s {
     int count;
@@ -18,27 +18,6 @@ struct packet_s test_packet = {
         .data = NULL
     }
 };
-
-void *tcp_one_thread_connection_test(void *arg) {
-    int count = *(int *)arg;
-    printf("TCP 연결 %d번 반복\n", count);
-    for (int i = 0; i < count; i++) {
-        socket_t socket = connect_tcp_to_server(SERVER_IP, TCP_SERVER_PORT);
-        close_socket(socket);
-    }
-}
-
-void *ib_one_thread_connection_test(void *arg) {
-    int count = *(int *)arg;
-    printf("IB 연결 %d번 반복\n", count);
-    for (int i = 0; i < count; i++) {
-        struct ib_handle_s *ib_handle = create_ib_handle();
-        struct ib_resources_s *ib_res = connect_ib_server(ib_handle);
-
-        destroy_ib_resource(ib_res);
-        destroy_ib_handle(ib_handle);
-    }
-}
 
 void *tcp_request_test(void *arg) {
     int count = *(int *)arg;
@@ -59,20 +38,14 @@ void *tcp_one_thread_request_test(void *arg) {
 
 void *ib_request_test(void *arg) {
     int count = *(int *)arg;
-    struct ib_handle_s *ib_handle = create_ib_handle();
-    struct ib_resources_s *ib_res = connect_ib_server(ib_handle);
+    socket_t sock = connect_tcp_to_server(LOCAL_IP, DB_PORT);
+    void *buffer = malloc(MESSAGE_SIZE);
     for (int i = 0; i < count; i++) {
-        post_receive(ib_res->qp, ib_handle->mr);
-        post_send(ib_handle->mr, ib_res->qp, &test_packet);
-
-        poll_completion(ib_handle); 
-        poll_completion(ib_handle);
-
-        struct packet_s *packet = deserialize_packet(ib_handle->mr->addr);
+        send_packet(sock, &test_packet, buffer);
+        struct packet_s *packet = recv_packet(sock, buffer);
         free_packet(packet);
     }
-    destroy_ib_resource(ib_res);
-    destroy_ib_handle(ib_handle);
+    close_socket(sock);
 }
 
 void *ib_one_thread_request_test(void *arg) {
@@ -103,16 +76,12 @@ void *tcp_threads_request_test(void *arg) {
 }
 
 int main(void) {
-    int count = 500;
-    test_func(tcp_one_thread_connection_test, &count, "tcp connection test");
-    test_func(ib_one_thread_connection_test, &count, "qp connection test");
-
     struct test_param_s param = {
         .count = 100000,
         .thread_count = 50
     };
-    test_func(tcp_one_thread_request_test, &param, "tcp_one_thread_request_test");
-    test_func(ib_one_thread_request_test, &param, "ib_one_thread_request_test");
+    // test_func(tcp_one_thread_request_test, &param, "tcp_one_thread_request_test");
+    // test_func(ib_one_thread_request_test, &param, "ib_one_thread_request_test");
 
     test_func(tcp_threads_request_test, &param, "tcp_threads_request_test");
     test_func(ib_threads_request_test, &param, "ib_threads_request_test");

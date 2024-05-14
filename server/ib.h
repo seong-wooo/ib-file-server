@@ -7,9 +7,10 @@
 
 #define IB_PORT 1
 #define MAX_WR 64
+#define MAX_QP 50
 #define COMP_VECTOR 1
 
-struct connection_data_s {
+struct conn_prop_s {
     uint32_t qp_num;
     uint16_t lid;
 };
@@ -28,17 +29,18 @@ struct ib_handle_s {
 struct ib_resources_s {
     struct ib_handle_s *ib_handle;
     struct ibv_qp *qp;
-    struct connection_data_s *remote_props;
+    struct conn_prop_s *remote_props;
     socket_t sock;
 };
 
 struct ib_handle_s *create_ib_handle(void);
 struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle, socket_t sock);
-void modify_qp_to_init(struct ib_resources_s *ib_res);
-void modify_qp_to_rtr(struct ib_resources_s *ib_res);
-void modify_qp_to_rts(struct ib_resources_s *ib_res);
-void send_qp_sync_data(struct ib_resources_s *ib_res);
-int recv_qp_sync_data(struct ib_resources_s *ib_res);
+struct ibv_qp *create_ibv_qp(struct ib_handle_s *ib_handle);
+void modify_qp_to_init(struct ibv_qp *qp);
+void modify_qp_to_rtr(struct ibv_qp *qp, struct conn_prop_s *remote_props);
+void modify_qp_to_rts(struct ibv_qp *qp);
+void send_qp_sync_data(socket_t sock, struct conn_prop_s *connection_prop);
+struct conn_prop_s *recv_qp_sync_data(socket_t sock);
 struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle);
 void post_receive(struct ibv_srq *srq, struct ibv_mr *mr);
 void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet);

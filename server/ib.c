@@ -216,25 +216,19 @@ struct ibv_mr *get_mr(struct ib_handle_s *ib_handle) {
     return mr;
 }
 
-struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle, socket_t sock) {
-    if (!ib_handle) 
-        return NULL;
-    struct ib_resources_s *ib_res = (struct ib_resources_s *)(malloc(sizeof(struct ib_resources_s)));
-    if (!ib_res) 
-        return NULL;
-    ib_res->ib_handle = ib_handle;
-    ib_res->qp = create_ibv_qp(ib_handle);
-    ib_res->remote_props = (struct connection_data_s *)(malloc(sizeof(struct connection_data_s)));
-    if (!ib_res->remote_props) {
-        destroy_ib_resource(ib_res);
-        return NULL;
+struct conn_prop_s *recv_qp_sync_data(socket_t sock) {
+    int rc;
+    struct conn_prop_s *remote_props = (struct conn_prop_s *)(malloc(sizeof(struct conn_prop_s)));
+    rc = recv(sock, remote_props, sizeof(*remote_props), MSG_WAITALL);
+    if (rc == SOCKET_ERROR) {
+        perror("recv");
+        exit(EXIT_FAILURE);
     }
-    ib_res->sock = accept_socket(sock);
-    
-    return ib_res;
+
+    return remote_props;
 }
 
-void modify_qp_to_init(struct ib_resources_s *ib_res) {
+void modify_qp_to_init(struct ibv_qp *qp) {
     enum ibv_qp_attr_mask attr_mask = IBV_QP_STATE | IBV_QP_PKEY_INDEX | 
         IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
     struct ibv_qp_attr qp_attr;
@@ -245,14 +239,14 @@ void modify_qp_to_init(struct ib_resources_s *ib_res) {
         .qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | 
             IBV_ACCESS_REMOTE_WRITE,
     };
-    int ret = ibv_modify_qp(ib_res->qp, &qp_attr, attr_mask);
+    int ret = ibv_modify_qp(qp, &qp_attr, attr_mask);
     if (ret) {
         perror("ibv_modify_qp");
         exit(EXIT_FAILURE);
     }
 }
 
-void modify_qp_to_rtr(struct ib_resources_s *ib_res) {
+void modify_qp_to_rtr(struct ibv_qp *qp, struct conn_prop_s *remote_props) {
     enum ibv_qp_attr_mask attr_mask = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | 
         IBV_QP_DEST_QPN | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
     struct ibv_qp_attr attr;
@@ -260,27 +254,27 @@ void modify_qp_to_rtr(struct ib_resources_s *ib_res) {
     attr = (struct ibv_qp_attr){
         .qp_state = IBV_QPS_RTR,
         .path_mtu = IBV_MTU_4096,
-        .dest_qp_num = ib_res->remote_props->qp_num,
+        .dest_qp_num = remote_props->qp_num,
         .rq_psn = 0,
         .max_dest_rd_atomic = 1,
         .min_rnr_timer = 12,
         .ah_attr = {
             .is_global = 0,
-            .dlid = ib_res->remote_props->lid,
+            .dlid = remote_props->lid,
             .sl = 0,
             .src_path_bits = 0,
             .port_num = IB_PORT,
         },
     };
 
-    int rc = ibv_modify_qp(ib_res->qp, &attr, attr_mask);
+    int rc = ibv_modify_qp(qp, &attr, attr_mask);
     if (rc) {
         perror("ibv_modify_qp (RTR)");
         exit(EXIT_FAILURE);
     }
 }
 
-void modify_qp_to_rts(struct ib_resources_s *ib_res) {
+void modify_qp_to_rts(struct ibv_qp *qp) {
     enum ibv_qp_attr_mask attr_mask = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | 
         IBV_QP_RNR_RETRY | IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC;
     struct ibv_qp_attr attr;
@@ -294,35 +288,18 @@ void modify_qp_to_rts(struct ib_resources_s *ib_res) {
         .max_rd_atomic = 1,
     };
 
-    int rc = ibv_modify_qp(ib_res->qp, &attr, attr_mask);
+    int rc = ibv_modify_qp(qp, &attr, attr_mask);
     if (rc) {
         perror("ibv_modify_qp (RTS)");
         exit(EXIT_FAILURE);
     }
 }
 
-void send_qp_sync_data(struct ib_resources_s *ib_res) {
-    struct connection_data_s conn_data = {
-        .qp_num = ib_res->qp->qp_num,
-        .lid = ib_res->ib_handle->port_attr->lid,
-    };
-
-    if (send(ib_res->sock, &conn_data, sizeof(conn_data), MSG_WAITALL) == SOCKET_ERROR) {
+void send_qp_sync_data(socket_t sock, struct conn_prop_s *connection_prop) {
+    if (send(sock, connection_prop, sizeof(*connection_prop), MSG_WAITALL) == SOCKET_ERROR) {
         perror("send");
         exit(EXIT_FAILURE);
     }
-}
-
-int recv_qp_sync_data(struct ib_resources_s *ib_res) {
-    int rc;
-    rc = recv(ib_res->sock, ib_res->remote_props, 
-        sizeof(*ib_res->remote_props), MSG_WAITALL);
-    if (rc == SOCKET_ERROR) {
-        perror("recv");
-        exit(EXIT_FAILURE);
-    }
-
-    return rc;
 }
 
 void post_receive(struct ibv_srq *srq, struct ibv_mr *mr) {
