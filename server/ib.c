@@ -120,15 +120,38 @@ struct ibv_mr *create_mr(struct ibv_pd *pd) {
     return mr;
 }
 
-struct queue_s *create_ibv_mr_pool(struct ibv_pd *pd) {
-    struct queue_s* queue = create_queue();
+void post_receive(struct ibv_srq *srq, struct ibv_mr *mr) {
+    struct ibv_sge sge;
+    struct ibv_recv_wr recv_wr;
+    struct ibv_recv_wr *bad_wr;
 
+    memset(&sge, 0, sizeof(sge));
+    sge = (struct ibv_sge){
+        .addr = (uint64_t)(uintptr_t)mr->addr,
+        .length = MESSAGE_SIZE,
+        .lkey = mr->lkey,
+    };
+
+    memset(&recv_wr, 0, sizeof(recv_wr));
+    recv_wr = (struct ibv_recv_wr){
+        .wr_id = (uint64_t)(uintptr_t)mr,
+        .next = NULL,
+        .sg_list = &sge,
+        .num_sge = 1,
+    };
+
+    int rc = ibv_post_srq_recv(srq, &recv_wr, &bad_wr);
+    if (rc) {
+        perror("ibv_post_recv");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void create_post_receive(struct ibv_srq *srq, struct ibv_pd *pd) {
     for (int i = 0; i < MAX_WR; i++) {
         struct ibv_mr *mr = create_mr(pd);
-        enqueue(queue, mr);
+        post_receive(srq, mr);
     }
-
-    return queue;
 }
 
 struct ibv_qp *create_ibv_qp(struct ib_handle_s *ib_handle) {
@@ -176,44 +199,11 @@ struct ib_handle_s *create_ib_handle(void) {
     ib_handle->pd = create_ibv_pd(ib_handle->ctx);
     ib_handle->srq = create_ibv_srq(ib_handle->pd);
     ib_handle->cq_channel = create_comp_channel(ib_handle->ctx);
-    ib_handle->mr_pool = create_ibv_mr_pool(ib_handle->pd);
     ib_handle->cq = create_ibv_cq(ib_handle->ctx, ib_handle->cq_channel);
     ib_handle->port_attr = create_port_attr(ib_handle->ctx);
+    create_post_receive(ib_handle->srq, ib_handle->pd);
 
     return ib_handle;
-}
-
-double calc_usage_memory_percent(void) {
-    FILE *file;
-    char buffer[256];
-    unsigned long long total_memory, free_memory;
-    file = fopen("/proc/meminfo", "r");
-    if (file == NULL) {
-        perror("Error opening /proc/meminfo");
-        return 1;
-    }
-    fgets(buffer, sizeof(buffer), file);
-    sscanf(buffer, "MemTotal: %llu kB", &total_memory);
-
-    fgets(buffer, sizeof(buffer), file);
-    sscanf(buffer, "MemFree: %llu kB", &free_memory);
-
-    fclose(file);
-
-    unsigned long long used_memory = total_memory - free_memory;
-    return ((double)used_memory / total_memory) * 100;
-}
-
-struct ibv_mr *get_mr(struct ib_handle_s *ib_handle) {
-    struct ibv_mr *mr = (struct ibv_mr *) dequeue(ib_handle->mr_pool);
-    if (!mr) {
-        if (calc_usage_memory_percent() > 80) {
-            return NULL;
-        }
-        return create_mr(ib_handle->pd);
-    }
-    
-    return mr;
 }
 
 struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle, socket_t sock) {
@@ -325,33 +315,6 @@ int recv_qp_sync_data(struct ib_resources_s *ib_res) {
     return rc;
 }
 
-void post_receive(struct ibv_srq *srq, struct ibv_mr *mr) {
-    struct ibv_sge sge;
-    struct ibv_recv_wr recv_wr;
-    struct ibv_recv_wr *bad_wr;
-
-    memset(&sge, 0, sizeof(sge));
-    sge = (struct ibv_sge){
-        .addr = (uint64_t)(uintptr_t)mr->addr,
-        .length = MESSAGE_SIZE,
-        .lkey = mr->lkey,
-    };
-
-    memset(&recv_wr, 0, sizeof(recv_wr));
-    recv_wr = (struct ibv_recv_wr){
-        .wr_id = (uint64_t)(uintptr_t)mr,
-        .next = NULL,
-        .sg_list = &sge,
-        .num_sge = 1,
-    };
-
-    int rc = ibv_post_srq_recv(srq, &recv_wr, &bad_wr);
-    if (rc) {
-        perror("ibv_post_recv");
-        exit(EXIT_FAILURE);
-    }
-}
-
 void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet) {
     struct ibv_sge sge;
     struct ibv_send_wr send_wr;
@@ -385,14 +348,6 @@ void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet) {
     free_packet(packet);
 }
 
-
-void restore_mr(struct queue_s *mr_pool, struct ibv_mr *mr) {
-    if (mr) {
-        memset(mr->addr, 0, MESSAGE_SIZE);
-        enqueue(mr_pool, mr);
-    }
-}
-
 void destroy_qp(struct ibv_qp *qp) {
     if (qp) {
         if (ibv_destroy_qp(qp)) {
@@ -410,34 +365,6 @@ void destroy_ib_resource(struct ib_resources_s *ib_res) {
     free(ib_res->remote_props);
     close_socket(ib_res->sock);
     free(ib_res);
-}
-
-void free_buffer(void *buffer) {
-    if (buffer) {
-        free(buffer);
-    }
-}
-
-void destroy_mr(struct ibv_mr *mr) {
-    if (mr) {
-        if (ibv_dereg_mr(mr)) {
-            perror("ibv_dereg_mr");
-            exit(EXIT_FAILURE);
-        }
-    }
-}
-
-void destroy_mr_pool(struct queue_s *mr_pool) {
-    if (!mr_pool) {
-        return;
-    }
-
-    while (mr_pool->front != NULL) {
-        struct ibv_mr *mr = (struct ibv_mr *)dequeue(mr_pool);
-        free_buffer(mr->addr);
-        destroy_mr(mr);
-    }
-    free(mr_pool);
 }
 
 void destroy_cq(struct ibv_cq *cq) {
@@ -500,7 +427,6 @@ void destroy_ibv_port_attr(struct ibv_port_attr *port_attr) {
 
 void destroy_ib_handle(struct ib_handle_s *ib_handle) {
     if (ib_handle) {
-        destroy_mr_pool(ib_handle->mr_pool);
         destroy_cq(ib_handle->cq);
         destroy_cq_channel(ib_handle->cq_channel);
         destroy_ibv_port_attr(ib_handle->port_attr);
