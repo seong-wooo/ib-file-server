@@ -11,8 +11,7 @@
 #define COMP_VECTOR 1
 
 struct ib_handle_s {
-    struct ibv_device **device_list;
-    struct ibv_port_attr *port_attr;
+    uint16_t lid;
     struct ibv_context *ctx;
     struct ibv_pd *pd;
     struct ibv_mr *mr;

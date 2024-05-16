@@ -15,14 +15,12 @@ struct connection_data_s {
 };
 
 struct ib_handle_s {
-    struct ibv_device **device_list;
-    struct ibv_port_attr *port_attr;
     struct ibv_context *ctx;
     struct ibv_pd *pd;
     struct ibv_srq *srq;
     struct ibv_cq *cq;
     struct ibv_comp_channel *cq_channel;
-    struct queue_s *mr_pool;
+    uint16_t lid;
 };
 
 struct ib_resources_s {

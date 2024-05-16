@@ -36,7 +36,7 @@ void accept_ib_client(struct ib_server_resources_s *res) {
     put(res->qp_map, ib_res->qp->qp_num, ib_res->qp);
 }
 
-void send_ib_response(struct fd_info_s *fd_info, struct hash_map_s *qp_map, struct queue_s *mr_pool) {
+void send_ib_response(struct fd_info_s *fd_info, struct hash_map_s *qp_map) {
     struct job_s *job;
     read(fd_info->fd, &job, sizeof(&job));
     struct ib_meta_data_s *meta_data = (struct ib_meta_data_s *)job->meta_data;
@@ -145,7 +145,7 @@ void ib_server(void) {
                     break;
                 
                 case PIPE:
-                    send_ib_response(fd_info, res->qp_map, res->ib_handle->mr_pool);
+                    send_ib_response(fd_info, res->qp_map);
                     break;
                 
                 case CLIENT_SOCKET:
