@@ -32,11 +32,7 @@ void accept_ctl(struct ib_server_resources_s *res) {
         modify_qp_to_init(qp);
         modify_qp_to_rtr(qp, remote_props);
         modify_qp_to_rts(qp);
-
-        struct ibv_mr *mr = get_mr(res->ib_handle);
-        if (mr != NULL) {
-            post_receive(res->ib_handle->srq, mr);
-        }
+        
         struct conn_prop_s local_prop = {
             .qp_num = qp->qp_num,
             .lid = res->ib_handle->port_attr->lid,
