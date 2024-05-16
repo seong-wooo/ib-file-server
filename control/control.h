@@ -16,14 +16,14 @@ struct fd_info_s {
     void *ptr;
 };
 
-struct db_resources_s {
+struct ctl_resources_s {
     int epoll_fd;
     socket_t sock;
     struct ib_handle_s *ib_handle;
 };
 
 int poll_event(int epoll_fd, struct epoll_event *events);
-struct db_resources_s *create_init_db_resources(void);
-void accept_client(struct db_resources_s *res);
-void handle_client(struct fd_info_s *fd_info, struct db_resources_s *res);
-void poll_completion(struct db_resources_s *res);
+struct ctl_resources_s *create_init_ctl_resources(void);
+void accept_client(struct ctl_resources_s *res);
+void handle_client(struct fd_info_s *fd_info, struct ctl_resources_s *res);
+void poll_completion(struct ctl_resources_s *res);

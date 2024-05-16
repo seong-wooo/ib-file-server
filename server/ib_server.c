@@ -23,12 +23,12 @@ struct ib_server_resources_s *create_ib_server_resources(void) {
     return res;
 }
 
-void accept_db(struct ib_server_resources_s *res) {
-    socket_t db_socket = accept_socket(res->sock);
+void accept_ctl(struct ib_server_resources_s *res) {
+    socket_t ctl_socket = accept_socket(res->sock);
 
     for (int i=0; i<MAX_QP; i++) {
         struct ibv_qp *qp = create_ibv_qp(res->ib_handle);
-        struct conn_prop_s *remote_props = recv_qp_sync_data(db_socket);
+        struct conn_prop_s *remote_props = recv_qp_sync_data(ctl_socket);
         modify_qp_to_init(qp);
         modify_qp_to_rtr(qp, remote_props);
         modify_qp_to_rts(qp);
@@ -41,11 +41,11 @@ void accept_db(struct ib_server_resources_s *res) {
             .qp_num = qp->qp_num,
             .lid = res->ib_handle->port_attr->lid,
         };
-        send_qp_sync_data(db_socket, &local_prop);
+        send_qp_sync_data(ctl_socket, &local_prop);
         put(res->qp_map, qp->qp_num, qp);
     }
 
-    close_socket(db_socket);
+    close_socket(ctl_socket);
 }
 
 void send_ib_response(struct fd_info_s *fd_info, struct hash_map_s *qp_map, struct queue_s *mr_pool) {
@@ -138,7 +138,7 @@ void ib_server(void) {
 
             switch (fd_info->type) {
                 case SERVER_SOCKET:
-                    accept_db(res);
+                    accept_ctl(res);
                     break;
 
                 case CQ:

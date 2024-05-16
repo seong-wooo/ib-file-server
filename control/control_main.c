@@ -4,10 +4,10 @@
 #include <stdio.h>
 #include <sys/select.h>
 #include <sys/socket.h>
-#include "db.h"
+#include "control.h"
 
 int main(int argc, char const *argv[]) {
-    struct db_resources_s *res = create_init_db_resources();
+    struct ctl_resources_s *res = create_init_ctl_resources();
     
     int ready_fd;
     struct epoll_event events[FD_SETSIZE];

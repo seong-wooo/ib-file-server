@@ -6,7 +6,7 @@
 #include <netinet/in.h>
 #include "tcp_ip.h"
 #include "queue.h"
-#include "db.h"
+#include "control.h"
 
 int create_epoll(void) {
     int epoll_fd = epoll_create(1);
@@ -27,7 +27,7 @@ int poll_event(int epoll_fd, struct epoll_event *events) {
 }
 
 
-socket_t create_db_socket(int port) {
+socket_t create_control_socket(int port) {
     socket_t sock = create_socket();
     bind_socket(sock, port);
     listen_socket(sock, SOMAXCONN);
@@ -50,12 +50,12 @@ void register_event(int epoll_fd, int registered_fd, enum fd_type type, void *pt
     }
 }
 
-struct db_resources_s *create_init_db_resources(void) {
-    struct db_resources_s *res = 
-        (struct db_resources_s *)malloc(sizeof(struct db_resources_s));
+struct ctl_resources_s *create_init_ctl_resources(void) {
+    struct ctl_resources_s *res = 
+        (struct ctl_resources_s *)malloc(sizeof(struct ctl_resources_s));
     
     res->epoll_fd = create_epoll();
-    res->sock = create_db_socket(DB_PORT);
+    res->sock = create_control_socket(DB_PORT);
     res->ib_handle = create_ib_handle();
     register_event(res->epoll_fd, res->sock, DB_SOCKET, NULL);
     register_event(res->epoll_fd, res->ib_handle->cq_channel->fd, CQ, NULL);   
@@ -63,7 +63,7 @@ struct db_resources_s *create_init_db_resources(void) {
     return res;
 }
 
-void accept_client(struct db_resources_s *res) {
+void accept_client(struct ctl_resources_s *res) {
     socket_t client_sock = accept_socket(res->sock);
     struct conn_resource_s *conn_res = 
         (struct conn_resource_s *) dequeue(res->ib_handle->conn_res_pool);
@@ -106,7 +106,7 @@ void send_tcp_response(struct conn_resource_s *conn_res) {
     free_packet(packet);
 }
 
-void handle_client(struct fd_info_s *fd_info, struct db_resources_s *res) {
+void handle_client(struct fd_info_s *fd_info, struct ctl_resources_s *res) {
     void *buf = malloc(MESSAGE_SIZE);
     int rc = recv(fd_info->fd, buf, MESSAGE_SIZE, 0);
     if (rc == SOCKET_ERROR) {
@@ -126,7 +126,7 @@ void handle_client(struct fd_info_s *fd_info, struct db_resources_s *res) {
     }
 }
 
-void poll_completion(struct db_resources_s *res) {
+void poll_completion(struct ctl_resources_s *res) {
     struct ibv_cq *event_cq;
     void *event_cq_ctx;
     struct ibv_wc wc;
