@@ -5,10 +5,13 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include "ib_server.h"
+#include "err_check.h"
 
 struct ib_server_resources_s *create_ib_server_resources(void) {
     struct ib_server_resources_s *res = 
         (struct ib_server_resources_s *)malloc(sizeof(struct ib_server_resources_s));
+    check_null(res, "malloc()");
+    
     res->epoll_fd = create_epoll();
     res->sock = create_server_socket(IB_SERVER_PORT);
     res->qp_map = create_hash_map(1000);

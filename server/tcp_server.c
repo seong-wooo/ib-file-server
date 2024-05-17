@@ -8,6 +8,7 @@
 #include "wthr.h"
 #include "message.h"
 #include "queue.h"
+#include "err_check.h"
 
 struct tcp_server_resources_s *create_tcp_server_resources(void) {
     struct tcp_server_resources_s *res = 
@@ -32,11 +33,9 @@ void accept_tcp_client(struct tcp_server_resources_s *res) {
 
 void handle_client(struct fd_info_s *fd_info, struct tcp_server_resources_s *res) {
     int rc = recv(fd_info->fd, fd_info->ptr, MESSAGE_SIZE, 0);
-    if (rc == SOCKET_ERROR) {
-        perror("recv()");
-        exit(EXIT_FAILURE);
-    }
-    else if (rc == 0) {
+    check_error(rc, "recv()");
+
+    if (rc == 0) {
         epoll_ctl(res->epoll_fd, EPOLL_CTL_DEL, fd_info->fd, NULL);
         close_socket(fd_info->fd);
         free(fd_info->ptr);
@@ -44,6 +43,8 @@ void handle_client(struct fd_info_s *fd_info, struct tcp_server_resources_s *res
     }
     else {
         struct job_s *job = (struct job_s *)malloc(sizeof(struct job_s));
+        check_null(job, "malloc()");
+
         job->meta_data = fd_info;
         job->packet = deserialize_packet(fd_info->ptr);
         enqueue_job(res->queue, job);
@@ -60,10 +61,7 @@ void send_tcp_response(struct fd_info_s *fd_info) {
     int rc = send(client_fd_info->fd, client_fd_info->ptr, 
         sizeof(struct packet_header_s) + packet->header.body_size, 0);
 
-    if (rc == SOCKET_ERROR) {
-        perror("send()");
-        exit(EXIT_FAILURE);
-    } 
+    check_error(rc, "send()");
     free_packet(packet);
 }
 

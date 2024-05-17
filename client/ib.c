@@ -1,107 +1,66 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include "ib.h"
+#include "err_check.h"
 
 struct ibv_device **create_device_list(void) {
     struct ibv_device **device_list = ibv_get_device_list(NULL);
-    if (!device_list) {
-        perror("ibv_get_device_list");
-        exit(EXIT_FAILURE);
-    }
+    check_null(device_list, "ibv_get_device_list");
+    
     return device_list;
 }
 
-struct ibv_context *create_ibv_context(struct ibv_device **device_list) {
-    if (!device_list) {
-        return NULL;
-    }
-
+struct ibv_context *create_ibv_context(void) {
+    struct ibv_device **device_list = create_device_list();
     struct ibv_context *ctx = ibv_open_device(device_list[0]);
-
-    if (!ctx) {
-        perror("ibv_open_device");
-        exit(EXIT_FAILURE);
-    }
+    ibv_free_device_list(device_list);
+    check_null(ctx, "ibv_open_device");
 
     return ctx;
 }
 
-void destroy_device_list(struct ibv_device **device_list) {
-    if (device_list) {
-        ibv_free_device_list(device_list);
-    }
-}
-
 struct ibv_pd *create_ibv_pd(struct ibv_context *ctx) {
-    if (!ctx) { 
-        return NULL;
-    }
-    
+    check_null(ctx, "ibv_context is NULL");
+
     struct ibv_pd *pd = ibv_alloc_pd(ctx);
+    check_null(pd, "ibv_alloc_pd");
     
-    if (!pd) {
-        perror("ibv_alloc_pd");
-        exit(EXIT_FAILURE);
-    }
     return pd;
 }
 
 struct ibv_cq *create_ibv_cq(struct ibv_context *ctx) {
-    if (!ctx) { 
-        return NULL;
-    }
+    check_null(ctx, "ibv_context is NULL");
 
     struct ibv_cq *cq = ibv_create_cq(ctx, MAX_WR, NULL, NULL, 0);
-
-    if (!cq) {
-        perror("ibv_create_cq");
-        exit(EXIT_FAILURE);
-    }
+    check_null(cq, "ibv_create_cq");
 
     return cq;
 }
 
 void *create_buffer(size_t buffer_size) {
     void *mr_addr = (void *)calloc(1, buffer_size);
-    
-    if (!mr_addr) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
+    check_null(mr_addr, "malloc()");    
     
     return mr_addr;
 }
 
 struct ibv_mr *create_ibv_mr(struct ibv_pd *pd) {
-    if (!pd) {
-        return NULL;
-    }
+    check_null(pd, "ibv_pd is NULL");
 
     void *mr_addr = create_buffer(MESSAGE_SIZE);
-    struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MESSAGE_SIZE, 
-        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
+    struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MESSAGE_SIZE, IBV_ACCESS_LOCAL_WRITE);
+    check_null(mr, "ibv_reg_mr");
     
-    if (!mr) {
-        perror("ibv_reg_mr");
-        exit(EXIT_FAILURE);
-    }
     return mr;
 }
 
 uint16_t get_lid(struct ibv_context *ctx) {
+    check_null(ctx, "ibv_context is NULL");
     uint16_t lid;
-    if (!ctx) {
-        perror("ctx is NULL");
-        exit(EXIT_FAILURE);
-    }
     
     struct ibv_port_attr *port_attr = 
         (struct ibv_port_attr *)(malloc(sizeof(struct ibv_port_attr)));
-    
-    if (!port_attr) {
-        perror("malloc()");
-        exit(EXIT_FAILURE);
-    }
+    check_null(port_attr, "malloc()");
     
     int rc = ibv_query_port(ctx, IB_PORT, port_attr);
     if (rc) {
@@ -115,11 +74,9 @@ uint16_t get_lid(struct ibv_context *ctx) {
 
 struct ib_handle_s *create_ib_handle(void) {
     struct ib_handle_s *ib_handle = (struct ib_handle_s *)(calloc(1, sizeof(struct ib_handle_s)));
-    
-    struct ibv_device **device_list = create_device_list();
-    ib_handle->ctx = create_ibv_context(device_list);
-    destroy_device_list(device_list);
-    
+    check_null(ib_handle, "malloc()");
+
+    ib_handle->ctx = create_ibv_context();
     ib_handle->pd = create_ibv_pd(ib_handle->ctx);
     ib_handle->mr = create_ibv_mr(ib_handle->pd);
     ib_handle->cq = create_ibv_cq(ib_handle->ctx);
@@ -152,23 +109,14 @@ struct ibv_qp *create_ibv_qp(struct ib_handle_s *ib_handle) {
 }
 
 struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle) {
-    if (!ib_handle) {
-        perror("ib_handle is NULL");
-        exit(EXIT_FAILURE);
-    }
-
+    check_null(ib_handle, "ib_handle is NULL");
+    
     struct ib_resources_s *ib_res = (struct ib_resources_s *)(calloc(1, sizeof(struct ib_resources_s)));
-    if (!ib_res) {
-        perror("malloc()");
-        exit(EXIT_FAILURE);
-    }
+    check_null(ib_res, "malloc()");
     ib_res->ib_handle = ib_handle;
     ib_res->qp = create_ibv_qp(ib_handle);
     ib_res->remote_props = (struct connection_data_s *)(calloc(1, sizeof(struct connection_data_s)));
-    if (!ib_res->remote_props) {
-        perror("calloc()");
-        exit(EXIT_FAILURE);
-    }
+    check_null(ib_res->remote_props, "malloc()");
     ib_res->sock = connect_tcp_to_server(SERVER_IP, IB_SERVER_PORT);
 
     return ib_res;

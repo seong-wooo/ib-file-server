@@ -2,9 +2,12 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "queue.h"
+#include "err_check.h"
 
 struct queue_s *create_queue(void) {
     struct queue_s *queue = (struct queue_s *)malloc(sizeof(struct queue_s));
+    check_null(queue, "malloc()");
+
     queue->front = NULL;
     queue->rear = NULL;
 
@@ -13,10 +16,8 @@ struct queue_s *create_queue(void) {
 
 struct node_s *create_new_node(void *data) {
     struct node_s *new_node = (struct node_s *)malloc(sizeof(struct node_s));
-    if (new_node == NULL) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
+    check_null(new_node, "malloc()");
+
     new_node->data = data;
     new_node->next = NULL;
 
@@ -63,4 +64,5 @@ void free_queue(struct queue_s *queue) {
         current = current->next;
         free(temp);
     }
+    free(queue);
 }

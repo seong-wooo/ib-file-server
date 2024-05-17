@@ -3,20 +3,15 @@
 #include <string.h>
 #include <stdint.h>
 #include "hash.h"
+#include "err_check.h"
 
 struct hash_map_s* create_hash_map(int size) {
     struct hash_map_s* hash_map = (struct hash_map_s*)malloc(sizeof(struct hash_map_s));
-    if (hash_map == NULL) {
-        perror("malloc()");
-        exit(EXIT_FAILURE);
-    }
+    check_null(hash_map, "malloc()");
 
     hash_map->size = size;
     hash_map->buckets = (struct hash_node_s**)malloc(sizeof(struct hash_node_s*) * size);
-    if (hash_map->buckets == NULL) {
-        perror("malloc()");
-        exit(EXIT_FAILURE);
-    }
+    check_null(hash_map->buckets, "malloc()");
 
     for (int i = 0; i < size; ++i) {
         hash_map->buckets[i] = NULL;
@@ -32,10 +27,8 @@ int hash(struct hash_map_s* hash_map, uint32_t key) {
 void put(struct hash_map_s* hash_map, uint32_t key, void* value) {
     int index = hash(hash_map, key);
     struct hash_node_s* new_node = (struct hash_node_s*)malloc(sizeof(struct hash_node_s));
-    if (new_node == NULL) {
-        perror("malloc()");
-        exit(EXIT_FAILURE);
-    }
+    check_null(new_node, "malloc()");
+    
     new_node->key = key;
     new_node->value = value;
     new_node->next = NULL;

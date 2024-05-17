@@ -7,45 +7,32 @@
 #include "server.h"
 #include "queue.h"
 #include "ib.h"
+#include "err_check.h"
 
 struct ibv_device **create_device_list(void) {
     struct ibv_device **device_list = ibv_get_device_list(NULL);
-    if (!device_list) {
-        perror("ibv_get_device_list");
-        exit(EXIT_FAILURE);
-    }
+    check_null(device_list, "ibv_get_device_list");
+    
     return device_list;
 }
 
 struct ibv_context *create_ibv_context(void) {
     struct ibv_device **device_list = create_device_list();
     struct ibv_context *ctx = ibv_open_device(device_list[0]);
-    if (!ctx) {
-        perror("ibv_open_device");
-        exit(EXIT_FAILURE);
-    }
+    check_null(ctx, "ibv_open_device");
     ibv_free_device_list(device_list);
     return ctx;
 }
 
 struct ibv_pd *create_ibv_pd(struct ibv_context *ctx) {
-    if (!ctx) { 
-        perror("ibv_context is NULL");
-        exit(EXIT_FAILURE);
-    }
+    check_null(ctx, "ibv_context is NULL");
     struct ibv_pd *pd = ibv_alloc_pd(ctx);
-    if (!pd) {
-        perror("ibv_alloc_pd");
-        exit(EXIT_FAILURE);
-    }
+    check_null(pd, "ibv_alloc_pd");
     return pd;
 }
 
 struct ibv_srq *create_ibv_srq(struct ibv_pd *pd) {
-    if (!pd) {
-        perror("ibv_pd is NULL");
-        exit(EXIT_FAILURE);
-    }
+    check_null(pd, "ibv_pd is NULL");
     struct ibv_srq_init_attr srq_init_attr = {
         .srq_context = NULL,
         .attr = {
@@ -55,24 +42,16 @@ struct ibv_srq *create_ibv_srq(struct ibv_pd *pd) {
         },
     };
     struct ibv_srq *srq = ibv_create_srq(pd, &srq_init_attr);
-    if (!srq) {
-        perror("ibv_create_srq");
-        exit(EXIT_FAILURE);
-    }
+    check_null(srq, "ibv_create_srq");
 
     return srq;
 }
 
 struct ibv_comp_channel *create_comp_channel(struct ibv_context *ctx) {
-    if (!ctx) {
-        perror("ibv_context is NULL");
-        exit(EXIT_FAILURE);
-    }
+    check_null(ctx, "ibv_context is NULL");
+    
     struct ibv_comp_channel *cq_channel = ibv_create_comp_channel(ctx);
-    if (!cq_channel) {
-        perror("ibv_create_comp_channel");
-        exit(EXIT_FAILURE);
-    }
+    check_null(cq_channel, "ibv_create_comp_channel");
 
     return cq_channel;
 
@@ -80,22 +59,14 @@ struct ibv_comp_channel *create_comp_channel(struct ibv_context *ctx) {
 
 void notify_cq(struct ibv_cq *cq) {
     int rc = ibv_req_notify_cq(cq, 0);
-    if (rc) {
-        perror("ibv_req_notify_cq");
-        exit(EXIT_FAILURE);
-    }
+    check_error(rc, "ibv_req_notify_cq");
 }
 
 struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *cq_channel) {
-    if (!ctx) {
-        perror("ibv_context is NULL");
-        exit(EXIT_FAILURE);
-    } 
+    check_null(ctx, "ibv_context is NULL");
+    
     struct ibv_cq *cq = ibv_create_cq(ctx, 100, NULL, cq_channel, COMP_VECTOR);
-    if (!cq) {
-        perror("ibv_create_cq");
-        exit(EXIT_FAILURE);
-    }
+    check_null(cq, "ibv_create_cq");
 
     notify_cq(cq);
 
@@ -104,21 +75,16 @@ struct ibv_cq *create_ibv_cq(struct ibv_context *ctx, struct ibv_comp_channel *c
 
 void *create_buffer(size_t buffer_size) {
     void *mr_addr = (void *)calloc(1, buffer_size);
-    if (!mr_addr) {
-        perror("calloc");
-        exit(EXIT_FAILURE);
-    }
-    
+    check_null(mr_addr, "malloc");
+
     return mr_addr;
 }
 
 struct ibv_mr *create_mr(struct ibv_pd *pd) {
     void *mr_addr = create_buffer(MESSAGE_SIZE);
     struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MESSAGE_SIZE, IBV_ACCESS_LOCAL_WRITE);
-    if (!mr) {
-        perror("ibv_reg_mr");
-        exit(EXIT_FAILURE);
-    }
+    check_null(mr, "ibv_reg_mr");
+    
     return mr;
 }
 
@@ -144,7 +110,7 @@ void post_receive(struct ibv_srq *srq, struct ibv_mr *mr) {
 
     int rc = ibv_post_srq_recv(srq, &recv_wr, &bad_wr);
     if (rc) {
-        perror("ibv_post_recv");
+        perror("ibv_post_srq_recv");
         exit(EXIT_FAILURE);
     }
 }
@@ -172,28 +138,18 @@ struct ibv_qp *create_ibv_qp(struct ib_handle_s *ib_handle) {
         },
     };
     struct ibv_qp *qp = ibv_create_qp(ib_handle->pd, &qp_init_attr);
-    if (!qp) {
-        perror("ibv_create_qp");
-        exit(EXIT_FAILURE);
-    }
+    check_null(qp, "ibv_create_qp");
 
     return qp;
 }
 
 uint16_t get_lid(struct ibv_context *ctx) {
+    check_null(ctx, "ibv_context is NULL");
     uint16_t lid;
-    if (!ctx) {
-        perror("ctx is NULL");
-        exit(EXIT_FAILURE);
-    }
-    
+
     struct ibv_port_attr *port_attr = 
         (struct ibv_port_attr *)(malloc(sizeof(struct ibv_port_attr)));
-    
-    if (!port_attr) {
-        perror("malloc()");
-        exit(EXIT_FAILURE);
-    }
+    check_null(port_attr, "malloc");    
     
     int rc = ibv_query_port(ctx, IB_PORT, port_attr);
     if (rc) {
@@ -207,10 +163,7 @@ uint16_t get_lid(struct ibv_context *ctx) {
 
 struct ib_handle_s *create_ib_handle(void) {
     struct ib_handle_s *ib_handle = (struct ib_handle_s *) calloc(1, sizeof(struct ib_handle_s));
-    if (!ib_handle) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
+    check_null(ib_handle, "malloc");
 
     ib_handle->ctx = create_ibv_context();
     ib_handle->pd = create_ibv_pd(ib_handle->ctx);
@@ -224,22 +177,15 @@ struct ib_handle_s *create_ib_handle(void) {
 }
 
 struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle, socket_t sock) {
-    if (!ib_handle) {
-        perror("ib_handle is NULL");
-        exit(EXIT_FAILURE);
-    }
+    check_null(ib_handle, "ib_handle is NULL");
+
     struct ib_resources_s *ib_res = (struct ib_resources_s *)(malloc(sizeof(struct ib_resources_s)));
-    if (!ib_res) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
+    check_null(ib_res, "malloc");
+
     ib_res->ib_handle = ib_handle;
     ib_res->qp = create_ibv_qp(ib_handle);
     ib_res->remote_props = (struct connection_data_s *)(malloc(sizeof(struct connection_data_s)));
-    if (!ib_res->remote_props) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
+    check_null(ib_res->remote_props, "malloc");
     ib_res->sock = accept_socket(sock);
     
     return ib_res;
@@ -312,19 +258,13 @@ void send_qp_sync_data(struct ib_resources_s *ib_res) {
     };
 
     int rc = send(ib_res->sock, &conn_data, sizeof(conn_data), MSG_WAITALL);
-    if (rc == SOCKET_ERROR) {
-        perror("send");
-        exit(EXIT_FAILURE);
-    }
+    check_error(rc, "send");
 }
 
 int recv_qp_sync_data(struct ib_resources_s *ib_res) {
     int rc = recv(ib_res->sock, ib_res->remote_props, 
         sizeof(*ib_res->remote_props), MSG_WAITALL);
-    if (rc == SOCKET_ERROR) {
-        perror("recv");
-        exit(EXIT_FAILURE);
-    }
+    check_error(rc, "recv");
 
     return rc;
 }
@@ -364,10 +304,7 @@ void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet) {
 
 void destroy_qp(struct ibv_qp *qp) {
     if (qp) {
-        if (ibv_destroy_qp(qp)) {
-            perror("ibv_destroy_qp");
-            exit(EXIT_FAILURE);
-        }
+        ibv_destroy_qp(qp);
     }
 }
 

@@ -6,6 +6,7 @@
 #include "message.h"
 #include "server.h"
 #include "log.h"
+#include "err_check.h"
 
 int cthred_pipefd;
 pthread_cond_t q_empty_cond;
@@ -39,9 +40,7 @@ void write_flie(struct packet_s *packet, char *response) {
     FILE *fp = fopen(filename, "rb+");
     if (fp == NULL) {
         fp = fopen(filename, "wb");
-        if (fp == NULL) {
-            perror("Error opening file");
-        }
+        check_null(fp, "fopen()");
         offset = 0;
     }
 
@@ -68,7 +67,7 @@ void read_file(struct packet_s *packet, char *response) {
     int length = packet->header.length;
 
     FILE *fp = fopen(filename, "r");
-    if (fp == NULL) {
+    if (is_null(fp)) {
         strcpy(response, "Error opening file");
     }
     else {
@@ -87,8 +86,7 @@ void read_file(struct packet_s *packet, char *response) {
     }
 }
 
-void delete_file(struct packet_s *packet, char *response)
-{
+void delete_file(struct packet_s *packet, char *response) {
     char *filename = packet->header.filename;
     if (unlink(filename) == 0) {
         char log_message[256];
@@ -101,8 +99,7 @@ void delete_file(struct packet_s *packet, char *response)
     }
 }
 
-void read_list(char *response)
-{
+void read_list(char *response) {
     DIR *dir;
     struct dirent *entry;
 

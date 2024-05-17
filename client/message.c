@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "message.h"
+#include "err_check.h"
 
 char get_option(void) {
     char option;
@@ -42,6 +43,8 @@ void get_data(char **data) {
     temp[strlen(temp) - 1] = '\0';
 
     *data = (char *)malloc(strlen(temp) + 1);
+    check_null(*data, "malloc()");
+
     strcpy(*data, temp);
 }
 
@@ -77,6 +80,7 @@ void get_delete(struct packet_s *packet) {
 
 struct packet_s *create_request_packet(char option) {
     struct packet_s *packet = calloc(1, sizeof(struct packet_s));
+    check_null(packet, "malloc()");
     switch (option) {
         case LIST:
             get_list_packet(packet);
@@ -105,6 +109,8 @@ void serialize_packet(struct packet_s *packet, void *buffer) {
 
 struct packet_s *deserialize_packet(void *buffer) {
     struct packet_s *packet = malloc(sizeof(struct packet_s));
+    check_null(packet, "malloc()");
+    
     memcpy(&packet->header, buffer, sizeof(struct packet_header_s));
     packet->body.data = (char *)malloc(packet->header.body_size);
     memcpy(packet->body.data, buffer + sizeof(struct packet_header_s), 

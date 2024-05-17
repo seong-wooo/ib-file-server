@@ -1,6 +1,10 @@
+#ifndef LOG_H
+#define LOG_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include "err_check.h"
 
 #define LOG_INFO "INFO"
 #define LOG_WARN "WARN"
@@ -11,10 +15,7 @@
 
 void write_log(const char* level, const char* message) {
     FILE* fp = fopen(LOGFILE, "a");
-    if (fp == NULL) {
-        perror("Error opening log file");
-        exit(1);
-    }
+    check_null(fp, "fopen()");
     time_t now;
     time(&now);
 
@@ -25,3 +26,5 @@ void write_log(const char* level, const char* message) {
     fprintf(fp, "%s [%s]: %s\n", time, level, message);
     fclose(fp);
 }
+
+#endif
