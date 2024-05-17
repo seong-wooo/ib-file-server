@@ -283,26 +283,28 @@ void destroy_qp(struct ibv_qp *qp) {
     }
 }
 
-void poll_completion(struct ib_handle_s *ib_handle) {
+void poll_completion(struct ib_handle_s *ib_handle, int count) {
     int rc;
     struct ibv_wc wc;
 
-    do {
-        rc = ibv_poll_cq(ib_handle->cq, 1, &wc);
-        if (rc < 0) {
-            perror("ibv_poll_cq");
-            exit(EXIT_FAILURE);
-        }
+    for (int i = 0; i < count; i++) {
+        do {
+            rc = ibv_poll_cq(ib_handle->cq, 1, &wc);
+            if (rc < 0) {
+                perror("ibv_poll_cq");
+                exit(EXIT_FAILURE);
+            }
 
-        if (rc == 0) {
-            continue;
-        }
+            if (rc == 0) {
+                continue;
+            }
 
-        if (wc.status != IBV_WC_SUCCESS) {
-            perror("Completion error");
-            exit(EXIT_FAILURE);
-        }
-    } while (rc == 0);
+            if (wc.status != IBV_WC_SUCCESS) {
+                perror("Completion error");
+                exit(EXIT_FAILURE);
+            }
+        } while (rc == 0);
+    }
 }
 
 void destroy_ib_resource(struct ib_resources_s *ib_res) {

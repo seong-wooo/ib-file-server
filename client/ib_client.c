@@ -20,8 +20,7 @@ void ib_client(void) {
         post_send(ib_handle->mr, ib_res->qp, request_packet);
         free_packet(request_packet);
 
-        poll_completion(ib_handle); 
-        poll_completion(ib_handle);
+        poll_completion(ib_handle, 2); 
 
         struct packet_s *packet = deserialize_packet(ib_handle->mr->addr);
         printf("[받은 데이터]:\n%s\n", packet->body.data);

@@ -34,7 +34,7 @@ struct ib_handle_s *create_ib_handle(void);
 struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle);
 void post_receive(struct ibv_qp *qp, struct ibv_mr *mr);
 void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet);
-void poll_completion(struct ib_handle_s *ib_handle);
+void poll_completion(struct ib_handle_s *ib_handle, int count);
 void destroy_ib_resource(struct ib_resources_s *ib_res);
 void destroy_ib_handle(struct ib_handle_s *ib_handle);
 #endif
