@@ -16,7 +16,7 @@ socket_t create_server_socket(int port) {
 }
 
 int create_epoll(void) {
-    int epoll_fd = epoll_create(1);
+    int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     check_error(epoll_fd, "epoll_create()");
 
     return epoll_fd;
