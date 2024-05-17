@@ -14,7 +14,7 @@ void tcp_client(void) {
             break;
         }
         struct packet_s *request_packet = create_request_packet(option);
-        send_packet(sock, request_packet, buffer);
+        send_packet(sock, request_packet);
         
         struct packet_s *response_packet = recv_packet(sock, buffer);
         printf("[받은 데이터]:\n%s\n", response_packet->body.data);

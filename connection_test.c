@@ -45,7 +45,7 @@ void *tcp_request_test(void *arg) {
     socket_t sock = connect_tcp_to_server(SERVER_IP, TCP_SERVER_PORT);
     void *buffer = malloc(MESSAGE_SIZE);
     for (int i = 0; i < count; i++) {
-        send_packet(sock, &test_packet, buffer);
+        send_packet(sock, &test_packet);
         struct packet_s *packet = recv_packet(sock, buffer);
         free_packet(packet);
     }

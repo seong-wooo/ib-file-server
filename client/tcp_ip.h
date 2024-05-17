@@ -13,7 +13,7 @@ typedef int socket_t;
 
 socket_t connect_tcp_to_server(char *ip, int port);
 void close_socket(socket_t sock);
-void send_packet(socket_t sock, struct packet_s *packet, void *buffer);
+void send_packet(socket_t sock, struct packet_s *packet);
 struct packet_s *recv_packet(socket_t sock, void *buffer);
 
 #endif

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <string.h>
@@ -10,10 +11,7 @@
 
 socket_t create_socket(void) {
     socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == INVALID_SOCKET) {
-        perror("socket()");
-        exit(EXIT_FAILURE);
-    }
+    check_error(sock, "socket()");
 
     return sock;
 }
@@ -39,10 +37,15 @@ socket_t connect_tcp_to_server(char *ip, int port) {
     return sock;
 }
 
-void send_packet(socket_t sock, struct packet_s *packet, void *buffer) {
-    serialize_packet(packet, buffer);
-    int rc = send(sock, buffer, sizeof(struct packet_header_s) + packet->header.body_size, 0);
-    check_error(rc, "send()");
+void send_packet(socket_t sock, struct packet_s *packet) {
+    struct iovec iov[2];
+    iov[0].iov_base = &packet->header;
+    iov[0].iov_len = sizeof(struct packet_header_s);
+    iov[1].iov_base = packet->body.data;
+    iov[1].iov_len = packet->header.body_size;
+
+    int rc = writev(sock, iov, 2);
+    check_error(rc, "writev()");
 }
 
 struct packet_s *recv_packet(socket_t sock, void *buffer) {
