@@ -6,21 +6,20 @@
 
 void tcp_client(void) {
     socket_t sock = connect_tcp_to_server(SERVER_IP, TCP_SERVER_PORT);
-    void *buffer = malloc(MESSAGE_SIZE);
+    struct packet_s *packet = create_packet();
 
     while(1) {
         char option = get_option();
         if (option == QUIT) {
             break;
         }
-        struct packet_s *request_packet = create_request_packet(option);
-        send_packet(sock, request_packet);
+        create_request_packet(option, packet);
+        send_packet(sock, packet);
         
-        struct packet_s *response_packet = recv_packet(sock, buffer);
-        printf("[받은 데이터]:\n%s\n", response_packet->body.data);
+        recv_packet(sock, packet);
+        printf("[받은 데이터]:\n%s\n", packet->body.data);
         
-        free_packet(request_packet);
-        free_packet(response_packet);
     }
+    free_packet(packet);
     close_socket(sock);
 }

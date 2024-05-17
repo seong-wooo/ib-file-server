@@ -48,9 +48,16 @@ void send_packet(socket_t sock, struct packet_s *packet) {
     check_error(rc, "writev()");
 }
 
-struct packet_s *recv_packet(socket_t sock, void *buffer) {
-    int rc = recv(sock, buffer, MESSAGE_SIZE, 0);
-    check_error(rc, "recv()");
+void recv_packet(socket_t sock, struct packet_s *packet) {
+    int body_size = MESSAGE_SIZE - sizeof(struct packet_header_s);
 
-    return deserialize_packet(buffer);
+    struct iovec iov[2];
+    iov[0].iov_base = &packet->header;
+    iov[0].iov_len = sizeof(struct packet_header_s);
+    iov[1].iov_base = packet->body.data;
+    iov[1].iov_len = body_size;
+
+    int rc = readv(sock, iov, 2);
+    check_error(rc, "readv()");
+    packet->body.data[packet->header.body_size] = '\0';
 }

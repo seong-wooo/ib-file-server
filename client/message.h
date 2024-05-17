@@ -29,7 +29,8 @@ struct packet_s {
 };
 
 char get_option(void);
-struct packet_s *create_request_packet(char option);
+struct packet_s *create_packet(void);
+void create_request_packet(char option, struct packet_s *packet);
 void serialize_packet(struct packet_s *packet, void *buffer);
 struct packet_s *deserialize_packet(void *buffer);
 void free_packet(struct packet_s *packet);

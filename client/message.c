@@ -4,6 +4,15 @@
 #include "message.h"
 #include "err_check.h"
 
+struct packet_s *create_packet(void) {
+    struct packet_s *packet = calloc(1, sizeof(struct packet_s));
+    check_null(packet, "malloc()");
+    packet->body.data = malloc(MESSAGE_SIZE - sizeof(struct packet_header_s));
+    check_null(packet->body.data, "malloc()");
+    
+    return packet;
+}
+
 char get_option(void) {
     char option;
     do {
@@ -42,9 +51,6 @@ void get_data(char **data) {
     fgets(temp, sizeof(temp), stdin);
     temp[strlen(temp) - 1] = '\0';
 
-    *data = (char *)malloc(strlen(temp) + 1);
-    check_null(*data, "malloc()");
-
     strcpy(*data, temp);
 }
 
@@ -78,9 +84,7 @@ void get_delete(struct packet_s *packet) {
     get_filename(packet->header.filename);
 }
 
-struct packet_s *create_request_packet(char option) {
-    struct packet_s *packet = calloc(1, sizeof(struct packet_s));
-    check_null(packet, "malloc()");
+void create_request_packet(char option, struct packet_s *packet) {    
     switch (option) {
         case LIST:
             get_list_packet(packet);
@@ -97,9 +101,8 @@ struct packet_s *create_request_packet(char option) {
         default:
             break;
     }
-
-    return packet;
 }
+
 
 void serialize_packet(struct packet_s *packet, void *buffer) {
     memcpy(buffer, &packet->header, sizeof(struct packet_header_s));

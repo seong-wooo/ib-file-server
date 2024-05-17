@@ -9,24 +9,23 @@
 void ib_client(void) {
     struct ib_handle_s *ib_handle = create_ib_handle();
     struct ib_resources_s *ib_res = connect_ib_server(ib_handle);
+    struct packet_s *packet = create_packet();
 
     while(1) {
         char option = get_option();
         if (option == QUIT) {
             break;
         }
-        struct packet_s *request_packet = create_request_packet(option);
+        create_request_packet(option, packet);
         post_receive(ib_res->qp, ib_handle->mr);
-        post_send(ib_handle->mr, ib_res->qp, request_packet);
-        free_packet(request_packet);
+        post_send(ib_handle->mr, ib_res->qp, packet);
 
         poll_completion(ib_handle, 2); 
 
         struct packet_s *packet = deserialize_packet(ib_handle->mr->addr);
         printf("[받은 데이터]:\n%s\n", packet->body.data);
-        free_packet(packet);
-
     }
+    free_packet(packet);
     destroy_ib_resource(ib_res);
     destroy_ib_handle(ib_handle);
 }
