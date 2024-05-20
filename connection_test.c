@@ -123,8 +123,8 @@ void *tcp_total_request_test(void *arg) {
 
 void *ib_total_request_test(void *arg) {
     struct test_param_s *params = (struct test_param_s *)arg;
+    struct ib_handle_s *ib_handle = create_ib_handle();
     for (int i = 0; i < params->count; i++) {
-        struct ib_handle_s *ib_handle = create_ib_handle();
         struct ib_resources_s *ib_res = connect_ib_server(ib_handle);
     
         post_receive(ib_res->qp, ib_handle->mr);
@@ -135,8 +135,8 @@ void *ib_total_request_test(void *arg) {
         struct packet_s *packet = deserialize_packet(ib_handle->mr->addr);
         free_packet(packet);
         destroy_ib_resource(ib_res);
-        destroy_ib_handle(ib_handle);
     }
+    destroy_ib_handle(ib_handle);
 }
 
 
@@ -150,12 +150,10 @@ int main(void) {
             .length = 50,
         }
     };
-
     test_packet.body.data = malloc(MESSAGE_SIZE - sizeof(struct packet_header_s));
-    // 연결 과정을 빼고 테스트
 
     struct test_param_s param = {
-        .count = 100000,
+        .count = 10000,
         .thread_count = 50,
         .packet = &test_packet,
     };
@@ -163,28 +161,28 @@ int main(void) {
 
 
     // 1.  TCP 와 IB의 속도 차이 비교 
-    test_func(tcp_one_thread_request_test, &param, "TCP 연결 후 데이터 통신 /50바이트");
-    test_func(ib_one_thread_request_test, &param, "IB 연결 후 데이터 통신 / 50바이트");
+    // test_func(tcp_one_thread_request_test, &param, "TCP 연결 후 데이터 통신 /50바이트");
+    // test_func(ib_one_thread_request_test, &param, "IB 연결 후 데이터 통신 / 50바이트");
     
     
-    // // 2. TCP 와 IB의 연결 해제 까지 합쳐서의 차이 비교
-    test_func(tcp_total_request_test, &param, "TCP 연결 및 해제 및 데이터 통신 / 50바이트");
-    test_func(ib_total_request_test, &param, "IB 연결 및 해제 및 데이터 통신 / 50바이트");
+    // 2. TCP 와 IB의 연결 해제 까지 합쳐서의 차이 비교
+    // test_func(tcp_total_request_test, &param, "TCP 연결 및 해제 및 데이터 통신 / 50바이트");
+    // test_func(ib_total_request_test, &param, "IB 연결 및 해제 및 데이터 통신 / 50바이트");
 
     // 3. 데이터 크기 2000바이트 
     test_packet.header.length = 2000;
-    test_func(tcp_one_thread_request_test, &param, "TCP 연결 후 데이터 통신 / 2000바이트");
-    test_func(ib_one_thread_request_test, &param, "TCP 연결 후 데이터 통신 / 2000바이트");
+    // test_func(tcp_one_thread_request_test, &param, "TCP 연결 후 데이터 통신 / 2000바이트");
+    // test_func(ib_one_thread_request_test, &param, "TCP 연결 후 데이터 통신 / 2000바이트");
     
-    test_func(tcp_total_request_test, &param, "TCP 연결 및 해제 및 데이터 통신 / 2000바이트");
-    test_func(ib_total_request_test, &param, "IB 연결 및 해제 및 데이터 통신 / 2000바이트");
+    // test_func(tcp_total_request_test, &param, "TCP 연결 및 해제 및 데이터 통신 / 2000바이트");
+    // test_func(ib_total_request_test, &param, "IB 연결 및 해제 및 데이터 통신 / 2000바이트");
 
     // 3. 데이터 크기 변경 후 비교
     test_packet.header.length = 4059;
-    test_func(tcp_one_thread_request_test, &param, "TCP 연결 후 데이터 통신 / 4096바이트");
-    test_func(ib_one_thread_request_test, &param, "TCP 연결 후 데이터 통신 / 4096바이트");
+    // test_func(tcp_one_thread_request_test, &param, "TCP 연결 후 데이터 통신 / 4096바이트");
+    // test_func(ib_one_thread_request_test, &param, "TCP 연결 후 데이터 통신 / 4096바이트");
     
-    test_func(tcp_total_request_test, &param, "TCP 연결 및 해제 및 데이터 통신 / 4096바이트");
+    // test_func(tcp_total_request_test, &param, "TCP 연결 및 해제 및 데이터 통신 / 4096바이트");
     test_func(ib_total_request_test, &param, "IB 연결 및 해제 및 데이터 통신 / 4096바이트");
 
     return 0;

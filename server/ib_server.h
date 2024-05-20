@@ -7,7 +7,7 @@
 #include "server.h"
 #include "ib.h"
 
-#define IB_SERVER_PORT 9001
+#define IB_SERVER_PORT 7001
 
 struct ib_meta_data_s {
     uint32_t qp_num;

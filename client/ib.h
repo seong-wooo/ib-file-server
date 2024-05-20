@@ -6,7 +6,7 @@
 #include "message.h"
 
 #define IB_PORT 1
-#define IB_SERVER_PORT 9001
+#define IB_SERVER_PORT 7001
 #define MAX_WR 64
 #define COMP_VECTOR 1
 
