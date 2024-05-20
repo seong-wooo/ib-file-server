@@ -35,8 +35,8 @@ struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle, s
 void modify_qp_to_init(struct ib_resources_s *ib_res);
 void modify_qp_to_rtr(struct ib_resources_s *ib_res);
 void modify_qp_to_rts(struct ib_resources_s *ib_res);
-void send_qp_sync_data(struct ib_resources_s *ib_res);
-int recv_qp_sync_data(struct ib_resources_s *ib_res);
+void send_qp_data(struct ib_resources_s *ib_res);
+int recv_qp_data(struct ib_resources_s *ib_res);
 struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle);
 void post_receive(struct ibv_srq *srq, struct ibv_mr *mr);
 void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet);

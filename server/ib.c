@@ -251,7 +251,7 @@ void modify_qp_to_rts(struct ib_resources_s *ib_res) {
     }
 }
 
-void send_qp_sync_data(struct ib_resources_s *ib_res) {
+void send_qp_data(struct ib_resources_s *ib_res) {
     struct connection_data_s conn_data = {
         .qp_num = ib_res->qp->qp_num,
         .lid = ib_res->ib_handle->lid,
@@ -261,7 +261,7 @@ void send_qp_sync_data(struct ib_resources_s *ib_res) {
     check_error(rc, "send");
 }
 
-int recv_qp_sync_data(struct ib_resources_s *ib_res) {
+int recv_qp_data(struct ib_resources_s *ib_res) {
     int rc = recv(ib_res->sock, ib_res->remote_props, 
         sizeof(*ib_res->remote_props), MSG_WAITALL);
     check_error(rc, "recv");

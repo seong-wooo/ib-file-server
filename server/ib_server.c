@@ -29,11 +29,11 @@ struct ib_server_resources_s *create_ib_server_resources(void) {
 void accept_ib_client(struct ib_server_resources_s *res) {
     struct ib_resources_s *ib_res = create_init_ib_resources(res->ib_handle, res->sock);
 
-    recv_qp_sync_data(ib_res);
+    recv_qp_data(ib_res);
     modify_qp_to_init(ib_res);
     modify_qp_to_rtr(ib_res);
     modify_qp_to_rts(ib_res);
-    send_qp_sync_data(ib_res);
+    send_qp_data(ib_res);
 
     register_event(res->epoll_fd, ib_res->sock, CLIENT_SOCKET, ib_res);
     put(res->qp_map, ib_res->qp->qp_num, ib_res->qp);
