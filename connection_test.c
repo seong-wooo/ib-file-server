@@ -1,8 +1,31 @@
 #include "./client/tcp_ip.h"
 #include "./client/ib.h"
-#include "test.h"
 #include <pthread.h>
+#include <stdio.h>
+#include <time.h>
+#include <sys/time.h>
+#include <unistd.h>
 
+struct timeval tv;
+double begin, end;
+
+void start_test() {
+    gettimeofday(&tv, NULL);
+	begin = (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000 ;
+}
+
+void end_test() {
+    gettimeofday(&tv, NULL);
+	end = (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000 ;
+    printf("Execution time %f\n", (end - begin) / 1000);
+}
+
+void test_func(void *func(void *), void *data, char *msg) {
+    printf("%s 테스트 시작 \n", msg);
+    start_test();
+    func(data);
+    end_test();
+}
 struct test_param_s {
     int count;
     int thread_count;
@@ -119,27 +142,32 @@ void *ib_total_request_test(void *arg) {
 
 
 int main(void) {
+    
     struct packet_s test_packet = {
         .header = {
             .option = READ,
             .filename = "ib.c",
-            .length = 14,
+            .length = 50,
         }
     };
 
     test_packet.body.data = malloc(MESSAGE_SIZE - sizeof(struct packet_header_s));
-    
+    // 연결 과정을 빼고 테스트
+
     struct test_param_s param = {
-        .count = 10000,
+        .count = 100000,
         .thread_count = 50,
         .packet = &test_packet,
     };
 
+
+
     // 1.  TCP 와 IB의 속도 차이 비교 
     test_func(tcp_one_thread_request_test, &param, "TCP 연결 후 데이터 통신 /50바이트");
     test_func(ib_one_thread_request_test, &param, "IB 연결 후 데이터 통신 / 50바이트");
-
-    // 2. TCP 와 IB의 연결 해제 까지 합쳐서의 차이 비교
+    
+    
+    // // 2. TCP 와 IB의 연결 해제 까지 합쳐서의 차이 비교
     test_func(tcp_total_request_test, &param, "TCP 연결 및 해제 및 데이터 통신 / 50바이트");
     test_func(ib_total_request_test, &param, "IB 연결 및 해제 및 데이터 통신 / 50바이트");
 
