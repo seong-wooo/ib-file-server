@@ -43,7 +43,6 @@ socket_t accept_socket(socket_t sock) {
     client_sock = accept(sock, (struct sockaddr *)&client_addr, &addrlen);
     check_error(client_sock, "accept()");
     
-    print_connected_client(&client_addr);
     return client_sock;
 }
 
@@ -66,7 +65,6 @@ void listen_socket(socket_t sock, int max_connection) {
 
 void close_socket(socket_t sock) {
     if (sock != INVALID_SOCKET) {
-        print_disconnected_client(sock);
         close(sock);
     }
 }
