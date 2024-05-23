@@ -36,28 +36,3 @@ socket_t connect_tcp_to_server(char *ip, int port) {
 
     return sock;
 }
-
-void send_packet(socket_t sock, struct packet_s *packet) {
-    struct iovec iov[2];
-    iov[0].iov_base = &packet->header;
-    iov[0].iov_len = sizeof(struct packet_header_s);
-    iov[1].iov_base = packet->body.data;
-    iov[1].iov_len = packet->header.body_size;
-
-    int rc = writev(sock, iov, 2);
-    check_error(rc, "writev()");
-}
-
-void recv_packet(socket_t sock, struct packet_s *packet) {
-    int body_size = MESSAGE_SIZE - sizeof(struct packet_header_s);
-
-    struct iovec iov[2];
-    iov[0].iov_base = &packet->header;
-    iov[0].iov_len = sizeof(struct packet_header_s);
-    iov[1].iov_base = packet->body.data;
-    iov[1].iov_len = body_size;
-
-    int rc = readv(sock, iov, 2);
-    check_error(rc, "readv()");
-    packet->body.data[packet->header.body_size] = '\0';
-}

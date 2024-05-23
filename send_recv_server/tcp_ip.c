@@ -63,6 +63,14 @@ void listen_socket(socket_t sock, int max_connection) {
     check_error(rc, "listen()");
 }
 
+socket_t create_server_socket(int port) {
+    socket_t sock = create_socket();
+    bind_socket(sock, port);
+    listen_socket(sock, SOMAXCONN);
+
+    return sock;
+}
+
 void close_socket(socket_t sock) {
     if (sock != INVALID_SOCKET) {
         close(sock);

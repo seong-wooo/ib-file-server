@@ -7,9 +7,7 @@
 
 typedef int socket_t;
 
-socket_t create_socket(void);
-void bind_socket(socket_t sock, int port);
-void listen_socket(socket_t sock, int max_connection);
-void close_socket(socket_t sock);
+socket_t create_server_socket(int port);
 socket_t accept_socket(socket_t sock);
+void close_socket(socket_t sock);
 #endif

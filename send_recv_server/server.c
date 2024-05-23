@@ -7,24 +7,11 @@
 #include "server.h"
 #include "err_check.h"
 
-socket_t create_server_socket(int port) {
-    socket_t sock = create_socket();
-    bind_socket(sock, port);
-    listen_socket(sock, SOMAXCONN);
-
-    return sock;
-}
-
 int create_epoll(void) {
     int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     check_error(epoll_fd, "epoll_create()");
 
     return epoll_fd;
-}
-
-void create_pipe(int pipefd[2]) {
-    int rc = pipe(pipefd);
-    check_error(rc, "pipe()");
 }
 
 void register_event(int epoll_fd, int registered_fd, enum fd_type type, void *ptr) {

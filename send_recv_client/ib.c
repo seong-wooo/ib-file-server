@@ -39,7 +39,7 @@ struct ibv_cq *create_ibv_cq(struct ibv_context *ctx) {
 
 void *create_buffer(size_t buffer_size) {
     void *mr_addr = (void *)calloc(1, buffer_size);
-    check_null(mr_addr, "malloc()");    
+    check_null(mr_addr, "malloc()"); 
     
     return mr_addr;
 }
@@ -47,8 +47,8 @@ void *create_buffer(size_t buffer_size) {
 struct ibv_mr *create_ibv_mr(struct ibv_pd *pd) {
     check_null(pd, "ibv_pd is NULL");
 
-    void *mr_addr = create_buffer(MESSAGE_SIZE);
-    struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MESSAGE_SIZE, IBV_ACCESS_LOCAL_WRITE);
+    void *mr_addr = create_buffer(MR_SIZE);
+    struct ibv_mr *mr = ibv_reg_mr(pd, mr_addr, MR_SIZE, IBV_ACCESS_LOCAL_WRITE);
     check_null(mr, "ibv_reg_mr");
     
     return mr;
@@ -113,10 +113,8 @@ struct ib_resources_s *create_init_ib_resources(struct ib_handle_s *ib_handle) {
     
     struct ib_resources_s *ib_res = (struct ib_resources_s *)(calloc(1, sizeof(struct ib_resources_s)));
     check_null(ib_res, "malloc()");
-    ib_res->ib_handle = ib_handle;
+
     ib_res->qp = create_ibv_qp(ib_handle);
-    ib_res->remote_props = (struct connection_data_s *)(calloc(1, sizeof(struct connection_data_s)));
-    check_null(ib_res->remote_props, "malloc()");
     ib_res->sock = connect_tcp_to_server(SERVER_IP, IB_SERVER_PORT);
 
     return ib_res;
@@ -139,22 +137,22 @@ void modify_qp_to_init(struct ibv_qp *qp) {
     }
 }
 
-void modify_qp_to_rtr(struct ib_resources_s *ib_res) {
+void modify_qp_to_rtr(struct ibv_qp *qp, struct connection_data_s remote_data) {
     enum ibv_qp_attr_mask attr_mask = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | 
         IBV_QP_DEST_QPN | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
     struct ibv_qp_attr attr;
     memset(&attr, 0, sizeof(attr));
-    attr = (struct ibv_qp_attr){
+    attr = (struct ibv_qp_attr) {
         .qp_state = IBV_QPS_RTR,
         .path_mtu = IBV_MTU_4096,
-        .dest_qp_num = ib_res->remote_props->qp_num,
+        .dest_qp_num = remote_data.qp_num,
         .ah_attr = {
-            .dlid = ib_res->remote_props->lid,
+            .dlid = remote_data.lid,
             .port_num = IB_PORT,
         },
     };
 
-    int rc = ibv_modify_qp(ib_res->qp, &attr, attr_mask);
+    int rc = ibv_modify_qp(qp, &attr, attr_mask);
     if (rc) {
         perror("ibv_modify_qp (RTR)");
         exit(EXIT_FAILURE);
@@ -180,38 +178,34 @@ void modify_qp_to_rts(struct ibv_qp *qp) {
     }
 }
 
-void send_qp_data(struct ib_resources_s *ib_res) {
-    struct connection_data_s conn_data = {
-        .qp_num = ib_res->qp->qp_num,
-        .lid = ib_res->ib_handle->lid,
-    };
-    int rc = send(ib_res->sock, &conn_data, sizeof(conn_data), MSG_WAITALL);
+void send_qp_data(socket_t sock, struct connection_data_s conn_data) {
+    int rc = send(sock, &conn_data, sizeof(conn_data), MSG_WAITALL);
     if (rc == SOCKET_ERROR) {
         perror("send()");
         exit(EXIT_FAILURE);
     }
 }
 
-int recv_qp_data(struct ib_resources_s *ib_res) {
-    int rc;
-    rc = recv(ib_res->sock, ib_res->remote_props, sizeof(*ib_res->remote_props), MSG_WAITALL);
-    if (rc == SOCKET_ERROR) {
-        perror("recv()");
-        exit(EXIT_FAILURE);
-    }
+struct connection_data_s recv_qp_data(struct ib_resources_s *ib_res) {
+    struct connection_data_s remote_data;
+    int rc = recv(ib_res->sock, &remote_data, sizeof(remote_data), MSG_WAITALL);
+    check_error(rc, "recv()");
 
-    return rc;
+    return remote_data;
 }
 
 struct ib_resources_s *connect_ib_server(struct ib_handle_s *ib_handle) {
     struct ib_resources_s *ib_res = create_init_ib_resources(ib_handle);
-
-    send_qp_data(ib_res);
-    recv_qp_data(ib_res);
+    struct connection_data_s conn_data = (struct connection_data_s) {
+        .qp_num = ib_res->qp->qp_num,
+        .lid = ib_handle->lid,
+    };
+    send_qp_data(ib_res->sock, conn_data);
+    struct connection_data_s remote_data = recv_qp_data(ib_res);
     modify_qp_to_init(ib_res->qp);
-    modify_qp_to_rtr(ib_res);
+    modify_qp_to_rtr(ib_res->qp, remote_data);
     modify_qp_to_rts(ib_res->qp);
-    
+
     return ib_res;
 }
 
@@ -223,7 +217,7 @@ void post_receive(struct ibv_qp *qp, struct ibv_mr *mr) {
     memset(&sge, 0, sizeof(sge));
     sge = (struct ibv_sge){
         .addr = (uint64_t)(uintptr_t)mr->addr,
-        .length = MESSAGE_SIZE,
+        .length = MR_SIZE,
         .lkey = mr->lkey,
     };
 
@@ -242,17 +236,16 @@ void post_receive(struct ibv_qp *qp, struct ibv_mr *mr) {
     }
 }
 
-void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet) {
+void post_send(struct ibv_mr *mr, struct ibv_qp *qp, int data_size) {
     struct ibv_sge sge;
     struct ibv_send_wr send_wr;
     struct ibv_send_wr *bad_wr;
 
-    size_t header_size = sizeof(struct packet_header_s);
 
     memset(&sge, 0, sizeof(sge));
     sge = (struct ibv_sge){
         .addr = (uint64_t)(uintptr_t)mr->addr,
-        .length = header_size + packet->header.body_size,
+        .length = sizeof(data_size) + data_size,
         .lkey = mr->lkey,
     };
 
@@ -265,7 +258,6 @@ void post_send(struct ibv_mr *mr, struct ibv_qp *qp, struct packet_s *packet) {
         .opcode = IBV_WR_SEND,
         .send_flags = IBV_SEND_SIGNALED,
     };
-    serialize_packet(packet, mr->addr);
 
     int rc = ibv_post_send(qp, &send_wr, &bad_wr);
     if (rc) {
@@ -285,32 +277,31 @@ void destroy_qp(struct ibv_qp *qp) {
 
 void poll_completion(struct ib_handle_s *ib_handle, int count) {
     int rc;
-    struct ibv_wc wc;
+    struct ibv_wc wc[count];
+    do {
+        rc = ibv_poll_cq(ib_handle->cq, count, wc);
+        if (rc < 0) {
+            perror("ibv_poll_cq");
+            exit(EXIT_FAILURE);
+        }
 
-    for (int i = 0; i < count; i++) {
-        do {
-            rc = ibv_poll_cq(ib_handle->cq, 1, &wc);
-            if (rc < 0) {
-                perror("ibv_poll_cq");
-                exit(EXIT_FAILURE);
-            }
-
-            if (rc == 0) {
-                continue;
-            }
-
-            if (wc.status != IBV_WC_SUCCESS) {
+        if (rc == 0) {
+            continue;
+        }
+        count -= rc;
+        for (int i=0; i<rc; i++) {
+            if (wc[i].status != IBV_WC_SUCCESS) {
                 perror("Completion error");
                 exit(EXIT_FAILURE);
             }
-        } while (rc == 0);
-    }
+        }
+    } while (count > 0);
+
 }
 
 void destroy_ib_resource(struct ib_resources_s *ib_res) {
     if (ib_res) {
         destroy_qp(ib_res->qp);
-        free(ib_res->remote_props);
         close_socket(ib_res->sock);
         free(ib_res);
     }
