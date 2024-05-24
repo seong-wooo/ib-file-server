@@ -4,7 +4,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <string.h>
-#include "./client/ib.h"
+#include "./read_write_client/ib.h"
 
 struct timeval tv;
 double begin, end;
@@ -30,13 +30,20 @@ void single_thread_client_test(int data_size, int transmission_count) {
     struct ib_handle_s *ib_handle = create_ib_handle();
     struct ib_resources_s *ib_res = connect_ib_server(ib_handle);
     
-    memcpy(ib_handle->mr->addr, &data_size, sizeof(int));
-    memset(ib_handle->mr->addr + sizeof(int), 'a', data_size);
+    struct message_header_s header = (struct message_header_s) {
+        .data_size = data_size,
+        .rdma_data = {
+            .rkey = ib_handle->mr->rkey,
+            .remote_addr = (uint64_t)(uintptr_t)ib_handle->mr->addr
+        },
+    };
+    memcpy(ib_handle->mr->addr, &header, sizeof(struct message_header_s));
+    memset(ib_handle->mr->addr + sizeof(struct message_header_s), 'a', data_size);
     
     start_test();
     for (int i = 0; i < transmission_count; i++) {
         post_receive(ib_res->qp, ib_handle->mr);
-        post_send(ib_handle->mr, ib_res->qp, data_size);
+        post_send(ib_res->qp, ib_handle->mr);
         poll_completion(ib_handle, 2);
     }
     end_test();
@@ -46,15 +53,23 @@ void single_thread_client_test(int data_size, int transmission_count) {
 
 void *multi_thread_client(void *arg) {
     struct multi_thread_arg_s *args = (struct multi_thread_arg_s *)arg;
+    
     struct ib_handle_s *ib_handle = create_ib_handle();
     struct ib_resources_s *ib_res = connect_ib_server(ib_handle);
     
-    memcpy(ib_handle->mr->addr, &args->data_size, sizeof(int));
-    memset(ib_handle->mr->addr + sizeof(int), 'a', args->data_size);
-    
+    struct message_header_s header = (struct message_header_s) {
+        .data_size = args->data_size,
+        .rdma_data = {
+            .rkey = ib_handle->mr->rkey,
+            .remote_addr = (uint64_t)(uintptr_t)ib_handle->mr->addr
+        },
+    };
+    memcpy(ib_handle->mr->addr, &header, sizeof(struct message_header_s));
+    memset(ib_handle->mr->addr + sizeof(struct message_header_s), 'a', args->data_size);
+
     for (int i = 0; i < args->transmission_count; i++) {
         post_receive(ib_res->qp, ib_handle->mr);
-        post_send(ib_handle->mr, ib_res->qp, args->data_size);
+        post_send(ib_res->qp, ib_handle->mr);
         poll_completion(ib_handle, 2);
     }
 
@@ -80,13 +95,29 @@ void multi_thread_client_test(int data_size, int transmission_count) {
 int main(int argc, char const *argv[]) {
     int data_size = atoi(argv[1]);
     int transmission_count = atoi(argv[2]);
-    printf("데이터 크기: %d\n", data_size);
-    printf("통신 횟수: %d\n", transmission_count);
     
-
-    printf("send/recv 테스트 시작 (싱글 스레드)\n");
+    printf("read/write 테스트 시작 (싱글 스레드)\n");
+    transmission_count = 100000;
+    for (data_size = 1; data_size <= 1000000; data_size *= 10) {
+        printf("data_size: %d\n", data_size);
+        single_thread_client_test(data_size, transmission_count);
+    }
+    data_size = 2000000;
+    single_thread_client_test(data_size, transmission_count);
+    
+    data_size = 4000000;
     single_thread_client_test(data_size, transmission_count);
 
-    printf("send/recv 테스트 시작 (멀티 스레드) \n");
+    transmission_count = 10000;
+    printf("read/write 테스트 시작 (멀티 스레드) \n");
+    for (data_size = 1; data_size <= 1000000; data_size *= 10) {
+        printf("data_size : %d\n", data_size);
+        multi_thread_client_test(data_size, transmission_count);
+    }
+
+    data_size = 2000000;
+    multi_thread_client_test(data_size, transmission_count);
+
+    data_size = 4000000;
     multi_thread_client_test(data_size, transmission_count);
 }
