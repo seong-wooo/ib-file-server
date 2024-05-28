@@ -80,13 +80,29 @@ void multi_thread_client_test(int data_size, int transmission_count) {
 int main(int argc, char const *argv[]) {
     int data_size = atoi(argv[1]);
     int transmission_count = atoi(argv[2]);
-    printf("데이터 크기: %d\n", data_size);
-    printf("통신 횟수: %d\n", transmission_count);
     
-
-    printf("send/recv 테스트 시작 (싱글 스레드)\n");
+    printf("read/write 테스트 시작 (싱글 스레드)\n");
+    transmission_count = 100000;
+    for (data_size = 1; data_size <= 1000000; data_size *= 10) {
+        printf("data_size: %d\n", data_size);
+        single_thread_client_test(data_size, transmission_count);
+    }
+    data_size = 2000000;
+    single_thread_client_test(data_size, transmission_count);
+    
+    data_size = 4000000;
     single_thread_client_test(data_size, transmission_count);
 
-    printf("send/recv 테스트 시작 (멀티 스레드) \n");
+    transmission_count = 10000;
+    printf("read/write 테스트 시작 (멀티 스레드) \n");
+    for (data_size = 1; data_size <= 1000000; data_size *= 10) {
+        printf("data_size : %d\n", data_size);
+        multi_thread_client_test(data_size, transmission_count);
+    }
+
+    data_size = 2000000;
+    multi_thread_client_test(data_size, transmission_count);
+
+    data_size = 4000000;
     multi_thread_client_test(data_size, transmission_count);
 }
