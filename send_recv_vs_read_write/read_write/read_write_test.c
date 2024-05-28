@@ -4,7 +4,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <string.h>
-#include "./read_write_client/ib.h"
+#include "./client/ib.h"
 
 struct timeval tv;
 double begin, end;
